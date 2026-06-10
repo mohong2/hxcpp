@@ -119,6 +119,11 @@ void ArrayBase::reserve(int inSize) const
    if (mAlloc<inSize)
    {
       int elemSize = GetElementSize();
+      // Guard the byte count before multiplying - inSize*elemSize can exceed
+      // 2^31 and wrap negative, which would corrupt the heap via an
+      // undersized allocation while length/mAlloc are set to inSize.
+      if (inSize > 0x7fffffff/elemSize)
+         hx::Throw( HX_CSTRING("Array allocation too large") );
       int bytes = inSize * elemSize;
 
       if (mBase)
@@ -159,6 +164,11 @@ void ArrayBase::Realloc(int inSize) const
    {
       int newAlloc = inSize;
       unsigned int elemSize = GetElementSize();
+      // Keep minBytes <= 2^31-1 so the roundup doubling below terminates
+      // (with larger values roundup wraps to 0 and loops forever) and the
+      // byte count stays representable as a positive int.
+      if ((unsigned int)inSize > (0x7fffffffU-8)/elemSize)
+         hx::Throw( HX_CSTRING("Array allocation too large") );
       unsigned int minBytes = inSize*elemSize + 8;
       unsigned int roundup = 64;
       while(roundup<minBytes)
@@ -218,7 +228,8 @@ void ArrayBase::zero(Dynamic inFirst, Dynamic inCount)
    if (count<0)
       return;
 
-   if (first+count > length)
+   // Overflow-safe clamp - first+count can wrap for huge count
+   if (count > length - first)
       count = length - first;
 
    int size = GetElementSize();
@@ -240,7 +251,8 @@ void ArrayBase::Blit(int inDestElement, ArrayBase *inSourceArray, int inSourceEl
 {
    int srcSize = inSourceArray->GetElementSize();
    int srcElems = inSourceArray->length;
-   if (inDestElement<0 || inSourceElement<0 || inSourceElement+inElementCount>srcElems)
+   if (inDestElement<0 || inSourceElement<0 || inElementCount<0 ||
+        inElementCount > srcElems-inSourceElement)
       hx::Throw( HX_CSTRING("blit out of bounds") );
    if (srcSize!=GetElementSize())
       hx::Throw( HX_CSTRING("blit array mismatch") );
@@ -368,7 +380,8 @@ void ArrayBase::Splice(ArrayBase *outResult,int inPos,int inLen)
    }
    if (inLen<=0)
       return;
-   if (inPos+inLen>length)
+   // Overflow-safe clamp - inPos+inLen can wrap for huge inLen
+   if (inLen > length - inPos)
       inLen = length - inPos;
 
    int s = GetElementSize();
