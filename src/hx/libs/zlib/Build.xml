@@ -1,0 +1,171 @@
+<xml>
+
+  <pragma once="true" />
+
+  <set name="ZLIB_DIR" value="${HXCPP}/project/thirdparty/zlib-ng-2.3.90"/>
+
+  <files id="hxcpp_zlib" dir="${this_dir}" >
+    <depend files="hxcpp-depends"/>
+    <cache value="true" asLibrary="true" />
+    <addTwice value="1" /> <!-- Linux can have issues with library ordering -->
+
+    <compilerflag value="-I${ZLIB_DIR}"/>
+
+    <compilerflag value="-DWITH_GZFILEOP" />
+    <compilerflag value="-DWITH_OPTIM" />
+    <compilerflag value="-DZLIB_COMPAT" />
+
+    <section unless="isMsvc">
+
+      <compilerflag value="-DHAVE_UNISTD_H" />
+      <compilerflag value="-DZLIB_WINAPI" if="windows" />
+      <compilerflag value="-DHAVE_CPUID_GNU" unless="HXCPP_ARMV7 || HXCPP_ARM64" />
+      <compilerflag value="-DHAVE_ATTRIBUTE_ALIGNED" />
+      <compilerflag value="-DHAVE_BUILTIN_ASSUME_ALIGNED" />
+      <compilerflag value="-DHAVE_VISIBILITY_HIDDEN" />
+
+    </section>
+
+    <section if="isMsvc">
+
+      <compilerflag value="-D_CRT_SECURE_NO_DEPRECATE" />
+      <compilerflag value="-D_CRT_NONSTDC_NO_DEPRECATE" />
+      <compilerflag value="-DZLIB_WINAPI" />
+
+      <section unless="HXCPP_ARM64">
+
+        <compilerflag value="-DHAVE_CPUID_MS"  />
+        <compilerflag value="-D__SSE__=1" />
+        <compilerflag value="-D__SSE2__=1" />
+
+      </section>
+
+    </section>
+
+    <section unless="HXCPP_ARM64 || HXCPP_ARMV7">
+
+      <compilerflag value="-DX86_FEATURES" />
+      <compilerflag value="-DX86_HAVE_XSAVE_INTRIN" unless="isMsvc" />
+      <compilerflag value="-DX86_SSE2" />
+      <compilerflag value="-DX86_SSSE3" />
+      <compilerflag value="-DX86_SSE41" />
+      <compilerflag value="-DX86_SSE42" />
+      <compilerflag value="-DX86_PCLMULQDQ_CRC" />
+      <compilerflag value="-DX86_AVX2" />
+
+    </section>
+
+    <section if="HXCPP_ARM64 || HXCPP_ARMV7">
+
+      <compilerflag value="-DARM_FEATURES" />
+      <compilerflag value="-DARM_NEON" />
+      <compilerflag value="-DARM_NEON_HASLD4" />
+      <compilerflag value="-march=armv7-a" if="HXCPP_ARMV7" unless="isMsvc" />
+      <compilerflag value="-mfpu=neon" if="HXCPP_ARMV7" unless="isMsvc" />
+      <compilerflag value="-march=armv8.2-a+dotprod+crc" if="HXCPP_ARM64" unless="isMsvc" />
+
+      <section if="HXCPP_ARM64">
+
+        <compilerflag value="-DARM_CRC32" />
+        <compilerflag value="-DARM_NEON_DOTPROD" />
+
+      </section>
+
+    </section>
+
+    <file name="ZLib.cpp"/>
+
+    <!-- HXCPP_LINK_NO_ZLIB may be set too late, so use filterout as well. -->
+    <file name="${ZLIB_DIR}/adler32.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/compress.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/crc32.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/crc32_braid_comb.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/deflate.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/deflate_fast.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/deflate_huff.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/deflate_medium.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/deflate_quick.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/deflate_rle.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/deflate_slow.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/deflate_stored.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/functable.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/infback.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/inflate.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/inftrees.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/insert_string.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/trees.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/uncompr.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/zutil.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/gzlib.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/gzread.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/gzwrite.c" filterout="HXCPP_LINK_NO_ZLIB" />
+    <file name="${ZLIB_DIR}/cpu_features.c" filterout="HXCPP_LINK_NO_ZLIB" />
+
+    <section>
+
+      <file name="${ZLIB_DIR}/arch/generic/adler32_c.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/generic/chunkset_c.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/generic/compare256_c.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/generic/crc32_braid_c.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/generic/crc32_chorba_c.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/generic/slide_hash_c.c" filterout="HXCPP_LINK_NO_ZLIB" />
+
+    </section>
+
+    <section unless="HXCPP_ARM64 || HXCPP_ARMV7">
+
+      <section unless="isMsvc">
+
+        <compilerflag value="-msse2" />
+        <compilerflag value="-mssse3" />
+        <compilerflag value="-msse4.1" />
+        <compilerflag value="-msse4.2" />
+        <compilerflag value="-mpclmul" />
+        <compilerflag value="-mavx2" />
+        <compilerflag value="-mbmi" />
+        <compilerflag value="-mbmi2" />
+
+      </section>
+
+      <file name="${ZLIB_DIR}/arch/x86/x86_features.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/chunkset_sse2.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/compare256_sse2.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/crc32_chorba_sse2.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/slide_hash_sse2.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/adler32_ssse3.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/chunkset_ssse3.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/crc32_chorba_sse41.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/adler32_sse42.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/crc32_pclmulqdq.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/adler32_avx2.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/chunkset_avx2.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/compare256_avx2.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/x86/slide_hash_avx2.c" filterout="HXCPP_LINK_NO_ZLIB" />
+
+    </section>
+
+    <section if="HXCPP_ARM64 || HXCPP_ARMV7">
+
+      <file name="${ZLIB_DIR}/arch/arm/arm_features.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/arm/slide_hash_armv6.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/arm/adler32_neon.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/arm/chunkset_neon.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/arm/compare256_neon.c" filterout="HXCPP_LINK_NO_ZLIB" />
+      <file name="${ZLIB_DIR}/arch/arm/slide_hash_neon.c" filterout="HXCPP_LINK_NO_ZLIB" />
+
+      <section if="HXCPP_ARM64">
+
+        <file name="${ZLIB_DIR}/arch/arm/crc32_armv8.c" filterout="HXCPP_LINK_NO_ZLIB" />
+        <file name="${ZLIB_DIR}/arch/arm/adler32_neon_dotprod.c" filterout="HXCPP_LINK_NO_ZLIB" />
+
+      </section>
+
+    </section>
+
+  </files>
+
+  <target id="haxe">
+    <files id="hxcpp_zlib" />
+  </target>
+
+</xml>
