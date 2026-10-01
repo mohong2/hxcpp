@@ -1,19 +1,14 @@
 {
   "name": "hxcpp",
-  "url": "https://github.com/SeiunEngine/hxcpp",
+  "url": "https://github.com/mohong2/hxcpp",
   "license": "BSD",
-  "tags": [
-    "haxe",
-    "hxcpp",
-    "cpp"
-  ],
-  "description": "SeiunEngine fork: official hxcpp 4.2.1 + backported GC/runtime fixes, modern instruction-set toolchains, zlib-ng. Keeps 4.2.1 Std.parseInt semantics (Lua hex colors safe).",
-  "version": "4.2.1-seiunengine.1",
-  "releasenote": "SeiunEngine optimized fork of hxcpp 4.2.1 - see README.md",
-  "contributors": [
-    "gamehaxe",
-    "HaxeFoundation"
-  ],
+  "tags": ["haxe", "hxcpp", "cpp"],
+  "description": "SeiunEngine fork: official hxcpp 4.3.2 + backported GC/runtime fixes (8-byte aligned allocation, weak-key Hash ephemeron marking), zlib-ng 2.3.90, and 4.2.1 Std.parseInt semantics (Lua hex colours safe).",
+  "version": "4.3.2-seiunengine.1",
+  "releasenote": "Forward port of the 4.2.1-seiunengine.1 fork onto official hxcpp 4.3.2 (4.3 API).",
+  "contributors": ["gamehaxe", "HaxeFoundation"],
   "binaryversion": 48,
-  "dependencies": {}
+  "dependencies": {
+
+  }
 }

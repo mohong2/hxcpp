@@ -292,7 +292,7 @@ class Compiler
       catch(e:Dynamic) { }
    }
 
-   public function compile(inFile:File,inTid:Int,headerFunc:Void->Void,pchTimeStamp:Null<Float>, progressIndex:Int = -1, progressTotal:Int = 0, groupIndex:Int = 0, groupCount:Int = 1, globalOffset:Int = 0, globalTotal:Int = 0)
+   public function compile(inFile:File,inTid:Int,headerFunc:Void->Void,pchTimeStamp:Null<Float>)
    {
       var obj_name = getObjName(inFile);
       var args = getArgs(inFile);
@@ -385,27 +385,6 @@ class Compiler
          }
          fileName += " \x1b[3m" + tagInfo + "\x1b[0m";
 
-         if (progressTotal > 0)
-         {
-            var groupFile = progressIndex + 1;
-            var groupPercent = Math.floor(groupFile / progressTotal * 100);
-            if (groupPercent > 100)
-               groupPercent = 100;
-            var overallFile = globalOffset + groupFile;
-            var overallPercent = 0;
-            if (globalTotal > 0)
-            {
-               overallPercent = Math.floor(overallFile / globalTotal * 100);
-               if (overallPercent > 100)
-                  overallPercent = 100;
-            }
-            var remaining = globalTotal > overallFile ? globalTotal - overallFile : 0;
-            var progress = " \x1b[2m[Group " + (groupIndex + 1) + "/" + groupCount
-               + " | File " + groupFile + "/" + progressTotal + " " + groupPercent + "%"
-               + " | Overall " + overallFile + "/" + globalTotal + " " + overallPercent + "%"
-               + " | Remaining " + remaining + "]\x1b[0m";
-            fileName = progress + fileName;
-         }
 
          if (inTid >= 0)
          {

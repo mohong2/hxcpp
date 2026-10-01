@@ -47,7 +47,6 @@
 <setup name="pdbserver" if="HXCPP_DEBUG_LINK HXCPP_HACK_PDBSRV HXCPP_FORCE_PDB_SERVER" />
 
 <set name="MSVC_ARCH" value="SSE2" unless="HXCPP_M64" />
-<set name="MSVC_ARCH" value="AVX2" unless="HXCPP_ARM64 || HXCPP_NO_ARCH_LEVEL" />
 
 <set name="HXCPP_LTCG_INCREMENTAL" value="1" if="HXCPP_OPTIMIZE_LINK_INCREMENTAL"/>
 <unset name="HXCPP_FAST_LINK" if="HXCPP_FAST_LINK" unless="MSVC19"/>

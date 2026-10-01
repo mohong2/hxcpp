@@ -32,6 +32,8 @@
 <set name="noM32" value="1" if="HXCPP_NO_M32" />
 <set name="noM32" value="1" if="HXCPP_M64" />
 <set name="noM32" value="1" if="rpi" />
+<set name="noM32" value="1" if="HXCPP_ARM64" />
+<set name="noM64" value="1" if="HXCPP_ARM64" />
 
 <compiler id="linux" exe="g++" if="linux">
   <exe name="${CXX}" if="CXX" />
@@ -39,6 +41,7 @@
   <flag value="-fvisibility=hidden"/>
   <cppflag value="-frtti"/>
   <cppflag value="-std=c++11" if="HXCPP_CPP11" />
+  <cflag value="-std=gnu99" unless="HXCPP_NO_GNU99" />
   <flag value="-g" if="debug"/>
   <flag value="-O2" unless="debug"/>
   <flag value="-fpic"/>
@@ -53,8 +56,6 @@
   <flag value="-m32" unless="noM32"/>
   <flag value="-m64" if="HXCPP_M64" unless="noM64" />
   <flag value="-DHXCPP_M64" if="HXCPP_M64"/>
-  <flag value="-march=x86-64-v3" if="HXCPP_M64" unless="HXCPP_NO_ARCH_LEVEL" />
-  <flag value="-march=haswell" unless="HXCPP_M64 || HXCPP_NO_ARCH_LEVEL" />
   <flag value="-I${HXCPP}/include"/>
   <objdir value="obj/linux${OBJEXT}/"/>
   <outflag value="-o"/>

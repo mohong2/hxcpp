@@ -357,7 +357,7 @@ https://github.com/dotnet/coreclr/blob/master/src/vm/util.cpp
 
 #define ISWHITE(x) ((x)==(' ') || (x)==('\t') || (x)==('\n') || (x)==('\r') )
 
-static void ParseCommandLine(LPTSTR psrc, Array<String> &out)
+static void ParseCommandLine(LPWSTR psrc, Array<String> &out)
 {
     unsigned int argcount = 1;       // discovery of arg0 is unconditional, below
 
@@ -379,7 +379,7 @@ static void ParseCommandLine(LPTSTR psrc, Array<String> &out)
        we need to preserve compatibility.
     */
 
-    LPTSTR pStart = psrc;
+    LPWSTR pStart = psrc;
     bool skipQuote = false;
 
     // Pairs of double-quotes vanish...
@@ -526,7 +526,7 @@ Array<String> __get_args()
    #ifdef HX_WINRT
    // Do nothing
    #elif defined(HX_WINDOWS)
-   LPTSTR str =  GetCommandLine();
+   LPWSTR str =  GetCommandLineW();
    ParseCommandLine(str, result);
    #else
    #ifdef __APPLE__
@@ -616,6 +616,16 @@ int __int__(double x)
 }
 
 
+// SeiunEngine: this is deliberately the 4.2.1 __hxcpp_parse_int implementation,
+// NOT 4.3.2's is_hex_string()/strtol rewrite.  Rationale (see
+// docs/haxe43-upgrade/08-hxcpp-forward-port.md):
+//   4.2.1: hex => strtoul(str+2,&end,16)  [unsigned, wraps into Int]
+//   4.3.2: hex => strtol(str,&end,16)     [signed, saturates to LONG_MAX on MSVC]
+// The engine parses Lua/HScript hex colours with Std.parseInt, so
+//   "0xFFFF0000" must stay -65536 (4.3.2 gives 2147483647 on Windows),
+// and "  0x10" / "+0x10" / "-0xFF" must NOT silently become valid hex.
+// The fork's haxelib.json advertises exactly this guarantee; adopting the
+// 4.3.2 semantics would silently change product behaviour.
 Dynamic __hxcpp_parse_int(const String &inString)
 {
    if (!inString.raw_ptr())
@@ -636,6 +646,11 @@ Dynamic __hxcpp_parse_int(const String &inString)
 }
 
 
+// SeiunEngine: restored.  4.3.2 still *declares* this in include/hx/StdLibs.h
+// and Haxe 4.2.5/4.3.7 std/cpp/NativeString.hx still binds to it, but 4.3.2
+// deleted the definition, so any use of cpp.NativeString.parseInt /
+// parseSubstrInt would fail to link.  Reinstating the 4.2.1 body keeps the
+// native API complete (the old body is preserved verbatim).
 int __hxcpp_parse_substr_int(const String &inString,int inStart, int inLen)
 {
    if (!inString.raw_ptr())
@@ -656,8 +671,6 @@ int __hxcpp_parse_substr_int(const String &inString,int inStart, int inLen)
       return 0;
    return (int)result;
 }
-
-
 
 
 double __hxcpp_parse_substr_float(const String &inString,int start, int length)

@@ -44,9 +44,6 @@
   <cppflag value="-U__STRICT_ANSI__" />
   <flag value="-m32" unless="HXCPP_M64"/>
   <flag value="-DHXCPP_M64" if="HXCPP_M64"/>
-  <flag value="-march=x86-64-v3" if="HXCPP_M64" unless="HXCPP_ARM64 || HXCPP_NO_ARCH_LEVEL" />
-  <flag value="-march=haswell" unless="HXCPP_M64 || HXCPP_ARM64 || HXCPP_NO_ARCH_LEVEL" />
-  <flag value="-march=armv8-a" if="HXCPP_ARM64" unless="HXCPP_NO_ARCH_LEVEL" />
   <flag value="-I${HXCPP}/include"/>
   <objdir value="obj/mingw${OBJEXT}/"/>
   <outflag value="-o"/>
