@@ -574,6 +574,12 @@ class BuildTool
       var groupCount = groupPlans.length;
       var globalOffset = 0;
 
+      Progress.init();
+      if (totalCompileFiles == 0)
+         Progress.nothingToDo();
+      else
+         Progress.plan(totalCompileFiles, groupCount);
+
       for(gi in 0...groupPlans.length)
       {
          var plan = groupPlans[gi];
@@ -592,8 +598,10 @@ class BuildTool
          if (group.mDir!="." && group.mSetImportDir)
             Sys.setCwd( PathManager.combine(baseDir, group.mDir) );
 
+         Progress.startGroup(groupNumber, groupCount, group.mId, groupTotal, groupOffset);
+
          var first = true;
-         var groupHeader = (!Log.quiet && !Log.verbose) ? function()
+         var groupHeader = (Log.verbose && !Log.quiet) ? function()
          {
             if (first)
             {
@@ -671,24 +679,7 @@ class BuildTool
          }
          Profile.pop();
 
-         if (!Log.quiet && !Log.verbose && groupTotal > 0)
-         {
-            var groupEndOverall = 0;
-            if (totalCompileFiles > 0)
-            {
-               groupEndOverall = Math.floor((groupOffset + groupTotal) * 100 / totalCompileFiles);
-               if (groupEndOverall > 100)
-                  groupEndOverall = 100;
-            }
-            var groupElapsed = Sys.time() - targetStartTime;
-            var etaSeconds = 0.0;
-            if (groupEndOverall > 0)
-               etaSeconds = groupElapsed * (100 - groupEndOverall) / groupEndOverall;
-            var elapsedText = Std.string(Math.round(groupElapsed * 10) / 10);
-            var etaText = Std.string(Math.round(etaSeconds * 10) / 10);
-            Log.info(" \x1b[2mGroup " + groupNumber + "/" + groupCount + " complete: " + groupTotal + " files, overall " + groupEndOverall + "%"
-               + ", elapsed " + elapsedText + "s, ETA " + etaText + "s\x1b[0m");
-         }
+         Progress.endGroup(groupNumber, groupCount, groupTotal, groupOffset);
 
          if (CompileCache.hasCache && group.mAsLibrary && mLinkers.exists("static_link"))
          {
@@ -729,6 +720,8 @@ class BuildTool
          if (group.mDir!="." && group.mSetImportDir)
             Sys.setCwd( baseDir );
       }
+
+      Progress.finish(totalCompileFiles, groupCount, targetStartTime);
 
       switch(target.mTool)
       {

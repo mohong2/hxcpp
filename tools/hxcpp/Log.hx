@@ -59,6 +59,7 @@ class Log
       }
       if (printMutex!=null)
          printMutex.acquire();
+      Progress.dropLine();
       Sys.stderr().write(Bytes.ofString(stripColor(output)));
       if (printMutex!=null)
          printMutex.release();
@@ -110,6 +111,7 @@ class Log
    {
       if (printMutex!=null)
         printMutex.acquire();
+      Progress.dropLine();
       Sys.print(stripColor(message));
          if (printMutex!=null)
             printMutex.release();
@@ -119,6 +121,7 @@ class Log
    {
       if (printMutex!=null)
         printMutex.acquire();
+      Progress.dropLine();
       Sys.println(stripColor(message));
       if (printMutex!=null)
          printMutex.release();
@@ -143,7 +146,30 @@ class Log
          }
          else
          {
-            colorSupported = (Sys.getEnv("TERM") == "xterm" || Sys.getEnv("ANSICON") != null);
+            // Windows used to be treated as colourless unless TERM/ANSICON was set, which
+            // also disabled colour in Windows Terminal, VS Code, ConEmu and friends.
+            var term = Sys.getEnv("TERM");
+            var termProgram = Sys.getEnv("TERM_PROGRAM");
+            var noColor = Sys.getEnv("NO_COLOR");
+            var force = Sys.getEnv("SEIUN_COLOR");
+            if (force == "1" || force == "true" || force == "yes")
+            {
+               colorSupported = (noColor == null);
+            }
+            else if (noColor != null)
+            {
+               colorSupported = false;
+            }
+            else
+            {
+               colorSupported = term == "xterm" || term == "xterm-256color"
+                  || Sys.getEnv("ANSICON") != null
+                  || Sys.getEnv("WT_SESSION") != null
+                  || Sys.getEnv("ConEmuANSI") == "ON"
+                  || termProgram != null
+                  || Sys.getEnv("VSCODE_INJECTION") != null
+                  || Sys.getEnv("COLORTERM") != null;
+            }
          }
       }
 

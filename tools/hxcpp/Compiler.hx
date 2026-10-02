@@ -385,7 +385,7 @@ class Compiler
          }
          fileName += " \x1b[3m" + tagInfo + "\x1b[0m";
 
-         if (progressTotal > 0)
+         if (Log.verbose && progressTotal > 0)
          {
             var groupFile = progressIndex + 1;
             var groupPercent = Math.floor(groupFile / progressTotal * 100);
@@ -411,9 +411,13 @@ class Compiler
          {
             if (BuildTool.threadExitCode == 0)
             {
-               if (!Log.verbose)
+               if (Log.verbose)
                {
                   Log.info(fileName);
+               }
+               else
+               {
+                  Progress.dropLine();
                }
                var err = ProcessManager.runProcessThreaded(exe, args, null);
                cleanTmp(tmpFile);
@@ -421,15 +425,21 @@ class Compiler
                {
                   if (FileSystem.exists(obj_name))
                      FileSystem.deleteFile(obj_name);
+                  Progress.errorOccurred();
                   BuildTool.setThreadError(err);
                }
+               Progress.fileDone();
             }
          }
          else
          {
-            if (!Log.verbose)
+            if (Log.verbose)
             {
                Log.info(fileName);
+            }
+            else
+            {
+               Progress.dropLine();
             }
             var result = ProcessManager.runProcessThreaded(exe, args, null);
             cleanTmp(tmpFile);
@@ -437,9 +447,11 @@ class Compiler
             {
                if (FileSystem.exists(obj_name))
                   FileSystem.deleteFile(obj_name);
+               Progress.errorOccurred();
                Tools.exit (result);
                //throw "Error : " + result + " - build cancelled";
             }
+            Progress.fileDone();
          }
 
          if (cacheName!=null && !useCacheInPlace)
