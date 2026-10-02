@@ -110,6 +110,9 @@ class ProcessManager
       args = dup(args);
       command = combineCommand(command,args);
 
+      // Child processes started here inherit our stdout, so move the in-place
+      // progress bar out of the way before their output lands on it.
+      Progress.dropLine();
 
       if (print && !Log.verbose && !Log.quiet)
       {
@@ -374,7 +377,7 @@ class ProcessManager
    }
 
    // This function will return 0 on success, or non-zero error code
-   public static function runProcessThreaded(command:String, args:Array<String>, inText:String = null):Int
+   public static function runProcessThreaded(command:String, args:Array<String>, inText:String = null, quietOnSuccess:Bool = false):Int
    {
       args = dup(args);
       command = combineCommand(command,args);
@@ -501,7 +504,10 @@ class ProcessManager
          
       if (output.length>0)
       {
-         Log.info(output.join("\n"));
+         // A successful Microsoft compiler still echoes the source file name it just
+         // compiled; printing that would shred the single-line progress bar.
+         if (!quietOnSuccess || Log.verbose)
+            Log.info(output.join("\n"));
       }
       
       return 0;

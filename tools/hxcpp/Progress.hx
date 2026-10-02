@@ -27,6 +27,12 @@ class Progress
 	static var lastDraw:Float = -1;
 	static var lastPct:Int = -1;
 	static var lastLen:Int = 0;
+	static var filesMode:Bool = false;
+	static var failed:Bool = false;
+	static var started:Int = 0;
+	static var current:String = "";
+	static var compiled = new Array<String>();
+	static var fileListPath:String = null;
 
 	static inline var BAR_WIDTH = 24;
 	static inline var DRAW_INTERVAL = 0.1;
@@ -54,6 +60,11 @@ class Progress
 			barMode = true;
 		else if (mode == "line")
 			barMode = false;
+		else if (mode == "files")
+		{
+			barMode = false;
+			filesMode = true;
+		}
 		else
 			barMode = !runningInCI();
 
@@ -77,6 +88,8 @@ class Progress
 		total = totalFiles;
 		groups = groupCount;
 		done = 0;
+		started = 0;
+		failed = false;
 		lastPct = -1;
 		startTime = Sys.time();
 		lastDraw = startTime;
@@ -98,12 +111,35 @@ class Progress
 		Log.println(I18n.t("progress.header", {i: i, n: n, id: id, files: files, pct: pct, elapsed: fmt(Sys.time() - startTime)}));
 	}
 
-	public static function fileDone():Void
+	/** Called just before a file is handed to the compiler. */
+	public static function fileStart(name:String):Void
 	{
+		current = shorten(name);
+		started++;
+
+		if (enabled && filesMode)
+			Log.println("  " + I18n.t("progress.file", {index: started, total: total, file: name}));
+	}
+
+	public static function fileDone(name:String):Void
+	{
+		if (total > 0 && name != null)
+			compiled.push(name);
+
 		if (!enabled)
 			return;
+
 		done++;
 		maybeDraw();
+	}
+
+	/** A compiler failed - get out of the way and name the file. */
+	public static function compileFailed(name:String):Void
+	{
+		errorOccurred();
+
+		if (!Log.quiet)
+			Log.println("\n" + I18n.t("progress.failed", {file: name}));
 	}
 
 	public static function endGroup(i:Int, n:Int, files:Int, offset:Int):Void
@@ -119,12 +155,39 @@ class Progress
 		Log.println(I18n.t("progress.groupdone", {i: i, n: n, files: files, pct: pct, elapsed: fmt(elapsed), eta: fmt(eta(elapsed, reached))}));
 	}
 
-	public static function finish(totalFiles:Int, groupCount:Int, start:Float):Void
+	public static function finish(totalFiles:Int, groupCount:Int, start:Float, objDir:String = null):Void
 	{
+		if (totalFiles > 0 && compiled.length > 0 && objDir != null)
+		{
+			try
+			{
+				var sep = (StringTools.endsWith(objDir, "/") || StringTools.endsWith(objDir, "\\")) ? "" : "/";
+				fileListPath = objDir + sep + "compiled_files.txt";
+				sys.io.File.saveContent(fileListPath, compiled.join("\n") + "\n");
+			}
+			catch (e:Dynamic)
+			{
+				fileListPath = null;
+			}
+		}
+
 		if (!enabled || totalFiles <= 0)
 			return;
+
 		dropLine();
 		Log.println(I18n.t("progress.summary", {files: totalFiles, elapsed: fmt(Sys.time() - start), groups: groupCount}));
+
+		if (fileListPath != null)
+			Log.println("  " + I18n.t("progress.filelist", {count: compiled.length, path: fileListPath}));
+	}
+
+	static function shorten(name:String):String
+	{
+		if (name == null)
+			return "";
+		if (name.length <= 44)
+			return name;
+		return "..." + name.substr(name.length - 41);
 	}
 
 	/** A compiler failed: get out of the way so its diagnostics are readable. */
@@ -133,6 +196,7 @@ class Progress
 		if (drawn)
 			dropLine();
 		barMode = false;
+		failed = true;
 	}
 
 	/** Erase the in-place bar line; safe to call from any thread, and from Log. */
@@ -147,6 +211,9 @@ class Progress
 
 	static function maybeDraw():Void
 	{
+		if (failed)
+			return;
+
 		var pct = total > 0 ? Math.floor(done * 100 / total) : 100;
 		if (pct > 100)
 			pct = 100;
@@ -164,7 +231,7 @@ class Progress
 			lastLen = textWidth;
 			drawn = true;
 		}
-		else
+		else if (!filesMode)
 		{
 			if (done < total && pct < lastPct + 10)
 				return;
@@ -181,7 +248,12 @@ class Progress
 		for (i in 0...BAR_WIDTH)
 			bar += (i < filled) ? (ascii ? "#" : "\u2588") : (ascii ? "-" : "\u2591");
 		var elapsed = Sys.time() - startTime;
-		return I18n.t("progress.bar", {bar: bar, pct: pct, done: done, total: total, eta: fmt(eta(elapsed, done))});
+		var text = I18n.t("progress.bar", {bar: bar, pct: pct, done: done, total: total, eta: fmt(eta(elapsed, done))});
+
+		if (current != "")
+			text += "  " + current;
+
+		return text;
 	}
 
 	static function eta(elapsed:Float, doneCount:Int):Float

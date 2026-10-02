@@ -412,46 +412,44 @@ class Compiler
             if (BuildTool.threadExitCode == 0)
             {
                if (Log.verbose)
-               {
                   Log.info(fileName);
-               }
                else
-               {
-                  Progress.dropLine();
-               }
-               var err = ProcessManager.runProcessThreaded(exe, args, null);
+                  Progress.fileStart(inFile.mName);
+
+               var err = ProcessManager.runProcessThreaded(exe, args, null, true);
                cleanTmp(tmpFile);
+
                if (err!=0)
                {
                   if (FileSystem.exists(obj_name))
                      FileSystem.deleteFile(obj_name);
-                  Progress.errorOccurred();
+                  Progress.compileFailed(inFile.mName);
                   BuildTool.setThreadError(err);
                }
-               Progress.fileDone();
+
+               Progress.fileDone(inFile.mName);
             }
          }
          else
          {
             if (Log.verbose)
-            {
                Log.info(fileName);
-            }
             else
-            {
-               Progress.dropLine();
-            }
-            var result = ProcessManager.runProcessThreaded(exe, args, null);
+               Progress.fileStart(inFile.mName);
+
+            var result = ProcessManager.runProcessThreaded(exe, args, null, true);
             cleanTmp(tmpFile);
+
             if (result!=0)
             {
                if (FileSystem.exists(obj_name))
                   FileSystem.deleteFile(obj_name);
-               Progress.errorOccurred();
+               Progress.compileFailed(inFile.mName);
                Tools.exit (result);
                //throw "Error : " + result + " - build cancelled";
             }
-            Progress.fileDone();
+
+            Progress.fileDone(inFile.mName);
          }
 
          if (cacheName!=null && !useCacheInPlace)

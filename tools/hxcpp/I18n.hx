@@ -183,6 +183,9 @@ class I18n
 		en.set("progress.groupdone", "  group {i}/{n} done: {files} files, overall {pct}%, elapsed {elapsed}, ETA {eta}");
 		en.set("progress.summary", "Compiled {files} files in {elapsed} ({groups} groups)");
 		en.set("progress.nothing", "Nothing to compile: everything is up to date");
+		en.set("progress.file", "[{index}/{total}] {file}");
+		en.set("progress.failed", "== compile failed: {file} ==");
+		en.set("progress.filelist", "{count} files recompiled - full list: {path}");
 
 		var zh = new Map<String, String>();
 		zh.set("encoding.hint", en.get("encoding.hint"));
@@ -191,6 +194,9 @@ class I18n
 		zh.set("progress.groupdone", "  第 {i}/{n} 组完成: {files} 个文件, 总进度 {pct}%, 已用 {elapsed}, 剩余 {eta}");
 		zh.set("progress.summary", "编译完成: {files} 个文件, 用时 {elapsed} ({groups} 组)");
 		zh.set("progress.nothing", "无需编译: 所有目标文件都是最新的");
+		zh.set("progress.file", "[{index}/{total}] {file}");
+		zh.set("progress.failed", "== 编译失败: {file} ==");
+		zh.set("progress.filelist", "本次重新编译 {count} 个文件 - 完整清单: {path}");
 
 		var tables = new Map<String, Map<String, String>>();
 		tables.set("en", en);

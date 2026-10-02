@@ -721,7 +721,7 @@ class BuildTool
             Sys.setCwd( baseDir );
       }
 
-      Progress.finish(totalCompileFiles, groupCount, targetStartTime);
+      Progress.finish(totalCompileFiles, groupCount, targetStartTime, mCompiler.mObjDir);
 
       switch(target.mTool)
       {
