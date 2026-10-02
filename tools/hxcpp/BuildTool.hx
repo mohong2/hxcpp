@@ -408,6 +408,8 @@ class BuildTool
          PathManager.mkdir(mCompiler.mObjDir);
 
       var baseDir = Sys.getCwd();
+      var targetStartTime = Sys.time();
+      var groupPlans = new Array<Dynamic>();
       for(group in target.mFileGroups)
       {
          var useCache = CompileCache.hasCache && group.mUseCache;
@@ -552,7 +554,44 @@ class BuildTool
          }
 
 
-         var nvcc = group.mNvcc;
+         groupPlans.push({
+            group: group,
+            toCompile: to_be_compiled,
+            groupObjs: groupObjs,
+            pchStamp: pchStamp,
+            someCompiled: someCompiled,
+            nvcc: group.mNvcc,
+            useCache: useCache
+         });
+
+         if (group.mDir!="." && group.mSetImportDir)
+            Sys.setCwd( baseDir );
+      }
+
+      var totalCompileFiles = 0;
+      for(plan in groupPlans)
+         totalCompileFiles += plan.toCompile.length;
+      var groupCount = groupPlans.length;
+      var globalOffset = 0;
+
+      for(gi in 0...groupPlans.length)
+      {
+         var plan = groupPlans[gi];
+         var group:FileGroup = plan.group;
+         var to_be_compiled:Array<File> = plan.toCompile;
+         var groupObjs:Array<String> = plan.groupObjs;
+         var pchStamp:Null<Float> = plan.pchStamp;
+         var someCompiled:Bool = plan.someCompiled;
+         var nvcc:Bool = plan.nvcc;
+         var useCache:Bool = plan.useCache;
+         var groupIndex = gi;
+         var groupNumber = gi + 1;
+         var groupTotal = to_be_compiled.length;
+         var groupOffset = globalOffset;
+
+         if (group.mDir!="." && group.mSetImportDir)
+            Sys.setCwd( PathManager.combine(baseDir, group.mDir) );
+
          var first = true;
          var groupHeader = (!Log.quiet && !Log.verbose) ? function()
          {
@@ -564,7 +603,13 @@ class BuildTool
                   first = false;
                   Log.lock();
                   Log.println("");
-                  Log.info("\x1b[33;1mCompiling group: " + group.mId + "\x1b[0m");
+                  var overallStart = 0;
+                  if (totalCompileFiles > 0)
+                     overallStart = Math.floor(groupOffset * 100 / totalCompileFiles);
+                  var elapsedSeconds = Sys.time() - targetStartTime;
+                  var elapsedText = Std.string(Math.round(elapsedSeconds * 10) / 10);
+                  Log.info("\x1b[33;1mCompiling group " + groupNumber + "/" + groupCount + ": " + group.mId + "\x1b[0m"
+                     + " \x1b[2m(" + groupTotal + " files, overall " + overallStart + "%, elapsed " + elapsedText + "s)\x1b[0m");
                   var message = "\x1b[1m" + (nvcc ? getNvcc() : mCompiler.mExe) + "\x1b[0m";
                   var flags = group.mCompilerFlags;
                   if (!nvcc)
@@ -600,17 +645,18 @@ class BuildTool
          } : null;
 
          Profile.push("compile");
+         var compileTotal = groupTotal;
          if (threadPool==null)
          {
-            for(file in to_be_compiled)
-               mCompiler.compile(file,-1,groupHeader,pchStamp);
+            for(i in 0...compileTotal)
+               mCompiler.compile(to_be_compiled[i],-1,groupHeader,pchStamp,i,compileTotal,groupIndex,groupCount,groupOffset,totalCompileFiles);
          }
          else
          {
             Log.initMultiThreaded();
             var mutex = threadPool.mutex;
             var compiler = mCompiler;
-            threadPool.setArrayCount(to_be_compiled.length);
+            threadPool.setArrayCount(compileTotal);
             threadPool.runJob( function(threadId:Int) {
                   while(threadExitCode==0)
                   {
@@ -619,11 +665,30 @@ class BuildTool
                         break;
                      var file = to_be_compiled[index];
 
-                     compiler.compile(file,threadId,groupHeader,pchStamp);
+                     compiler.compile(file,threadId,groupHeader,pchStamp,index,compileTotal,groupIndex,groupCount,groupOffset,totalCompileFiles);
                   }
             });
          }
          Profile.pop();
+
+         if (!Log.quiet && !Log.verbose && groupTotal > 0)
+         {
+            var groupEndOverall = 0;
+            if (totalCompileFiles > 0)
+            {
+               groupEndOverall = Math.floor((groupOffset + groupTotal) * 100 / totalCompileFiles);
+               if (groupEndOverall > 100)
+                  groupEndOverall = 100;
+            }
+            var groupElapsed = Sys.time() - targetStartTime;
+            var etaSeconds = 0.0;
+            if (groupEndOverall > 0)
+               etaSeconds = groupElapsed * (100 - groupEndOverall) / groupEndOverall;
+            var elapsedText = Std.string(Math.round(groupElapsed * 10) / 10);
+            var etaText = Std.string(Math.round(etaSeconds * 10) / 10);
+            Log.info(" \x1b[2mGroup " + groupNumber + "/" + groupCount + " complete: " + groupTotal + " files, overall " + groupEndOverall + "%"
+               + ", elapsed " + elapsedText + "s, ETA " + etaText + "s\x1b[0m");
+         }
 
          if (CompileCache.hasCache && group.mAsLibrary && mLinkers.exists("static_link"))
          {
@@ -658,6 +723,8 @@ class BuildTool
          {
             objs = objs.concat(groupObjs);
          }
+
+         globalOffset += compileTotal;
 
          if (group.mDir!="." && group.mSetImportDir)
             Sys.setCwd( baseDir );
