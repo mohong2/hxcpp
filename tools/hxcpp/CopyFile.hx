@@ -88,8 +88,7 @@ class CopyFile
    }
 }
 
-@:enum
-abstract Overwrite(String) from String to String
+enum abstract Overwrite(String) from String to String
 {
     var ALWAYS = "always";
     var IF_NEWER = "ifNewer";
