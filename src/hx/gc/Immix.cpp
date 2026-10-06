@@ -5703,13 +5703,26 @@ void MarkConservative(int *inBottom, int *inTop,hx::MarkContext *__inCtx)
       void *vptr = *(void **)ptr;
 
       MemType mem;
-      // SeiunEngine: upstream uses 0x03 unconditionally, including on the platforms where
-      // it auto-defines HXCPP_ALIGN_ALLOC (EMSCRIPTEN/GCW0). Tightening this to 0x07 under
-      // HXCPP_ALIGN_ALLOC silently DROPS any 4-but-not-8-aligned stack word, and a dropped
-      // root means a live object gets collected -> use-after-free. Being permissive is only
-      // ever a false retention (memory), never a crash. Keep 0x03 until every allocation
-      // path is proven 8-byte aligned (note: src/hx/cppia/Cppia.cpp:1690-1711 still is not).
+      // SeiunEngine: adopted upstream's rule after re-checking why we had diverged.
+      //
+      // With HXCPP_ALIGN_ALLOC every position this allocator hands out is 8-byte
+      // aligned, and the compaction paths honour that (ALIGN_PADDING at both destPos
+      // sites, ExpandAlloc bumping spaceStart/buffer).  A stack word that is
+      // 4-but-not-8 aligned therefore cannot be the address of a live object, so
+      // accepting it only lets this conservative scan feed GetMemType() a value that
+      // is not an object - which is how unrelated memory gets read as an Immix header
+      // and pushed onto the mark stack.
+      //
+      // The earlier concern was that 0x07 would silently drop a root.  The one
+      // allocation path upstream leaves unaligned is the cppia JIT fast path
+      // (cppia/Cppia.cpp:1690-1721), and it sits inside '#ifdef HXCPP_GC_NURSERY'.
+      // This engine defines neither HXCPP_GC_NURSERY nor uses cppia, so that path is
+      // not compiled and nothing can be dropped here.
+      #ifdef HXCPP_ALIGN_ALLOC
+      const size_t validObjectMask = 0x07;
+      #else
       const size_t validObjectMask = 0x03;
+      #endif
 
       if (vptr && !((size_t)vptr & validObjectMask) && vptr!=prev && vptr!=lastPin)
       {
