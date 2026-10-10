@@ -2125,7 +2125,7 @@ class BuildTool
             defines.set("toolchain","mac");
             defines.set("macos","macos");
             defines.set("apple","apple");
-            defines.set("BINDIR", arm64 ? "MacArm64" : m64 ? "Mac64":"Mac");
+            defines.set("BINDIR", (arm64 || m64) ? "Mac64" : "Mac"); // Apple Silicon shares ndll/Mac64: lime's copy step and the host tools' CFFI loader only look there. Objects stay separate in obj/darwinarm64.
          }
       }
    }
