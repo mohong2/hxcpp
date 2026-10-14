@@ -1,13 +1,55 @@
 #include "GcRegCapture.h"
 
+#include <string.h>
+
+#if defined(_MSC_VER)
+   #define HX_CAPTURE_NOINLINE __declspec(noinline)
+#else
+   #define HX_CAPTURE_NOINLINE __attribute__((noinline))
+#endif
+
+namespace hx {
+
+#if defined(HXCPP_CAPTURE_SETJMP) || defined(HXCPP_CAPTURE_CONTEXT) || defined(HXCPP_CAPTURE_x86) || defined(HXCPP_CAPTURE_x64) // {
+
+size_t CopyStackWords(void **outWords, void *inFrom, int *inTopOfStack)
+{
+   // Start on a word boundary, rounding down into the frame being copied, so the
+   // copied words hold the pointers stored there rather than halves of two
+   void **from = (void **)((size_t)inFrom & ~(sizeof(void *) - 1));
+   void **to = (void **)inTopOfStack;
+   if (!to || to <= from)
+      return 0;
+
+   size_t words = (size_t)(to - from);
+   if (words > CAPTURE_FRAME_WORDS)
+      words = CAPTURE_FRAME_WORDS;
+   memcpy(outWords, from, words * sizeof(void *));
+   return words;
+}
+
+// Not inlined, so this frame is below the capturing function's and copying up
+// from one of its locals takes in all of the capturing frame, save area included.
+HX_CAPTURE_NOINLINE size_t CaptureCallerFrame(void **outWords, int *inTopOfStack)
+{
+   volatile int marker = 0;
+   return CopyStackWords(outWords, (void *)&marker, inTopOfStack);
+}
+
+#endif // }
+
+} // end namespace hx
+
+
 #ifdef HXCPP_CAPTURE_SETJMP // {
 
 // Nothing
 
+#elif defined(HXCPP_CAPTURE_CONTEXT) // } {
+
+// RtlCaptureContext and CopyStackWords
+
 #elif defined(HXCPP_CAPTURE_x86) // }  {
-
-#pragma optimize( "", off )
-
 
 namespace hx {
 
@@ -16,47 +58,12 @@ void CaptureX86(RegisterCaptureBuffer &outBuffer)
    void *regEsi;
    void *regEdi;
    void *regEbx;
-   #ifdef __GNUC__
    asm ("mov %%esi, %0\n\t" : "=r" (regEsi) );
    asm ("mov %%edi, %0\n\t" : "=r" (regEdi) );
    asm ("mov %%ebx, %0\n\t" : "=r" (regEbx) );
-   #else
-   __asm {
-      mov regEsi, esi
-      mov regEdi, edi
-      mov regEbx, ebx
-   }
-   #endif
    outBuffer.esi = regEsi;
    outBuffer.edi = regEdi;
    outBuffer.ebx = regEbx;
-}
-
-} // end namespace hx
-
-#elif defined(HXCPP_CAPTURE_x64) && !defined(__GNUC__) // } {
-
-#include <string.h>
-
-namespace hx {
-
-// Called after RtlCaptureContext has filled ioBuffer.context, so what this function
-// does with the registers no longer matters. Its frame is below context.Rsp, and
-// the home area it may write is the capturing function's outgoing-argument space,
-// which holds nothing of the caller's.
-void CaptureX64Frame(RegisterCaptureBuffer &ioBuffer, int *inTopOfStack)
-{
-   void **from = (void **)ioBuffer.context.Rsp;
-   void **to = (void **)inTopOfStack;
-   size_t words = 0;
-   if (to > from)
-   {
-      words = (size_t)(to - from);
-      if (words > CAPTURE_FRAME_WORDS)
-         words = CAPTURE_FRAME_WORDS;
-      memcpy(ioBuffer.frame, from, words * sizeof(void *));
-   }
-   ioBuffer.frameWords = words;
 }
 
 } // end namespace hx
@@ -83,6 +90,7 @@ void CaptureX64(RegisterCaptureBuffer &outBuffer)
       asm ("movq %%r15, %0\n\t" : "=r" (reg15) );
       outBuffer.rbx = regBx;
       outBuffer.rbp = regBp;
+      outBuffer.rdi = regDi;
       outBuffer.r12 = reg12;
       outBuffer.r13 = reg13;
       outBuffer.r14 = reg14;
@@ -134,8 +142,6 @@ void CaptureArm64(RegisterCaptureBuffer &outBuffer)
 
 #else // }  {
 
-#include <string.h>
-
 namespace hx {
 
 // Put this function here so we can be reasonablly sure that "this" register and
@@ -163,4 +169,3 @@ RegisterCapture *RegisterCapture::Instance()
 } // end namespace hx
 
 #endif // }
-
