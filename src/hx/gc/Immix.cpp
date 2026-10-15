@@ -3650,6 +3650,12 @@ public:
    {
       while(true)
       {
+         if (hx::gPauseForCollect)
+         {
+            hx::PauseForCollect();
+            continue;
+         }
+
          BlockDataInfo *result = GetNextFree(inRequiredBytes);
          if (result)
          {
