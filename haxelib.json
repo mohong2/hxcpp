@@ -1,11 +1,11 @@
 {
   "name": "hxcpp",
-  "url": "https://github.com/HaxeFoundation/hxcpp/",
+  "url": "https://github.com/mohong2/hxcpp",
   "license": "BSD",
   "tags": ["haxe", "hxcpp", "cpp"],
-  "description": "Hxcpp is the runtime support for the C++ backend of the Haxe compiler. This contains the headers, libraries and support code required to generate a fully compiled executable from Haxe code.",
-  "version": "4.3.0",
-  "releasenote": "See Changes.md",
+  "description": "SeiunEngine fork: official hxcpp v4.3.175 rebased onto upstream master, with zlib-ng 2.3.90 compression, upstream PR #1357 weak-key Hash ephemeron marking, the #1409 HXCPP_GC_BIG_BLOCKS row-count fix, per-call haxe.zip stream counters, and the SeiunEngine bilingual build progress UI.",
+  "version": "4.3.175-seiunengine.1",
+  "releasenote": "Rebased the fork from official hxcpp 4.3.2 (27210f21) onto v4.3.175 (e6387333), dropping fork patches that upstream has superseded and re-porting the rest. See docs/seiunengine-rebase-4.3.175.md.",
   "contributors": ["gamehaxe", "HaxeFoundation"],
   "binaryversion": 48,
   "dependencies": {
