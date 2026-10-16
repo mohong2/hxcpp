@@ -4,6 +4,9 @@
 #include <vector>
 #include <set>
 #include <stdlib.h>
+// std::sscanf below needs <cstdio>; hxcpp.h only pulls it in for HX_LINUX,
+// which Android does not define, so name it explicitly (#1418).
+#include <cstdio>
 
 #if defined(HXCPP_CAPTURE_x64) && !defined(__GNUC__)
 #include <windows.h>
