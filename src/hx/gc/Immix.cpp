@@ -14,6 +14,10 @@
 #include <inttypes.h>
 #include <limits>
 
+#if defined(HXCPP_M64) && (defined(_M_X64) || defined(__x86_64__)) && defined(_MSC_VER)
+#include <xmmintrin.h>   // _mm_prefetch, used by the marking prefetch below
+#endif
+
 #ifdef __EMSCRIPTEN__
    #include <emscripten/stack.h>
    #ifdef HXCPP_SINGLE_THREADED_APP
@@ -146,9 +150,9 @@ static size_t sWorkingMemorySize          = 10*1024*1024;
 
 #ifdef HXCPP_GC_MOVING
 // Just not sure what this shold be
-static size_t sgMaximumFreeSpace  = 1024*1024*1024;
+static size_t sgMaximumFreeSpace  = 512*1024*1024;
 #else
-static size_t sgMaximumFreeSpace  = 1024*1024*1024;
+static size_t sgMaximumFreeSpace  = 512*1024*1024;
 #endif
 
 
@@ -735,7 +739,7 @@ struct HoleRange
 hx::QuickVec<struct BlockDataInfo *> *gBlockInfo = 0;
 static int gBlockInfoEmptySlots = 0;
 
-#define FRAG_THRESH 14
+#define FRAG_THRESH 20
 
 #define ZEROED_NOT    0
 #define ZEROED_THREAD 1
@@ -1962,6 +1966,23 @@ public:
              hx::Object *obj = marking->pop();
              if (obj)
              {
+                // Prefetch the next object's header while this one is marked.
+                // __Mark reads the mark byte and walks the fields, so fetching
+                // the next object's first cache line overlaps with that work;
+                // on a pointer-chasing graph it hides the miss latency.
+                // Ported from SomeGuyWhoLovesCoding/hxcpp-sgwlfnf f0a204d8.
+                #if defined(HXCPP_M64) && (defined(_M_X64) || defined(__x86_64__))
+                if (marking->count > 0)
+                {
+                   hx::Object *next = marking->stack[marking->count - 1];
+                   #if defined(_MSC_VER)
+                      _mm_prefetch((const char*)next, _MM_HINT_T0);
+                   #else
+                      __builtin_prefetch(next, 0, 3);
+                   #endif
+                }
+                #endif
+
                 obj->__Mark(this);
                 #ifdef HX_MULTI_THREAD_MARKING
                 // Load balance
@@ -2686,39 +2707,47 @@ void RunFinalizers()
          idx++;
    }
 
-   for(FinalizerMap::iterator i=sFinalizerMap.begin(); i!=sFinalizerMap.end(); )
    {
-      hx::Object *obj = i->first;
-      FinalizerMap::iterator next = i;
-      ++next;
-
-      unsigned char mark = ((unsigned char *)obj)[HX_ENDIAN_MARK_ID_BYTE];
-      if ( mark!=gByteMarkID )
+      // sgwlfnf 29143e03 (subset): rebuild the map with the entries whose objects survived instead of erasing dead entries in place.
+      FinalizerMap survivors;
+      survivors.reserve(sFinalizerMap.size());
+      for(FinalizerMap::iterator i=sFinalizerMap.begin(); i!=sFinalizerMap.end(); ++i)
       {
-         finalizerCount++;
-         (*i->second)(obj);
-         sFinalizerMap.erase(i);
+         hx::Object *obj = i->first;
+         unsigned char mark = ((unsigned char *)obj)[HX_ENDIAN_MARK_ID_BYTE];
+         if ( mark!=gByteMarkID )
+         {
+            finalizerCount++;
+            (*i->second)(obj);
+         }
+         else
+         {
+            survivors.insert(*i);
+         }
       }
-
-      i = next;
+      sFinalizerMap.swap(survivors);
    }
 
 
-   for(HaxeFinalizerMap::iterator i=sHaxeFinalizerMap.begin(); i!=sHaxeFinalizerMap.end(); )
    {
-      hx::Object *obj = i->first;
-      HaxeFinalizerMap::iterator next = i;
-      ++next;
-
-      unsigned char mark = ((unsigned char *)obj)[HX_ENDIAN_MARK_ID_BYTE];
-      if ( mark!=gByteMarkID )
+      // sgwlfnf 29143e03 (subset): survivors map, same as sFinalizerMap above.
+      HaxeFinalizerMap survivors;
+      survivors.reserve(sHaxeFinalizerMap.size());
+      for(HaxeFinalizerMap::iterator i=sHaxeFinalizerMap.begin(); i!=sHaxeFinalizerMap.end(); ++i)
       {
-         finalizerCount++;
-         (*i->second)(obj);
-         sHaxeFinalizerMap.erase(i);
+         hx::Object *obj = i->first;
+         unsigned char mark = ((unsigned char *)obj)[HX_ENDIAN_MARK_ID_BYTE];
+         if ( mark!=gByteMarkID )
+         {
+            finalizerCount++;
+            (*i->second)(obj);
+         }
+         else
+         {
+            survivors.insert(*i);
+         }
       }
-
-      i = next;
+      sHaxeFinalizerMap.swap(survivors);
    }
 
    MEM_STAMP(hx::tFinalizers);
@@ -3128,11 +3157,11 @@ void VerifyStackRead(int *inBottom, int *inTop)
 
 // TODO - work out best size based on cache size?
 #ifdef HXCPP_GC_BIG_BLOCKS
-static int sMinZeroQueueSize = 4;
-static int sMaxZeroQueueSize = 16;
+static int sMinZeroQueueSize = 4*2;
+static int sMaxZeroQueueSize = 16*2;
 #else
-static int sMinZeroQueueSize = 8;
-static int sMaxZeroQueueSize = 32;
+static int sMinZeroQueueSize = 8*2;
+static int sMaxZeroQueueSize = 32*2;
 #endif
 
 #define BLOCK_OFSIZE_COUNT 12
@@ -3250,7 +3279,10 @@ public:
 
       //Should we force a collect ? - the 'large' data are not considered when allocating objects
       // from the blocks, and can 'pile up' between smalll object allocations
-      if ((inSize+mLargeAllocated > mLargeAllocForceRefresh) && sgInternalEnable)
+      // SeiunEngine (cne 068b7168): let large allocations (charts, audio,
+      // haxe.io.Bytes) pile up 50% longer before they force a collection.
+      size_t newThreshold = mLargeAllocForceRefresh + (mLargeAllocForceRefresh >> 1);
+      if ((inSize+mLargeAllocated > newThreshold) && sgInternalEnable)
       {
          #ifdef SHOW_MEM_EVENTS
          //GCLOG("Large alloc causing collection");
@@ -5199,11 +5231,11 @@ public:
          }
 
 
-         bool isFragged = stats.fragScore > mAllBlocks.size()*FRAG_THRESH;
+         bool isFragged = stats.fragScore > mAllBlocks.size()*FRAG_THRESH*1.5;
          if (doRelease || isFragged || hx::gAlwaysMove)
          {
-            if (isFragged && sgTimeToNextTableUpdate>3)
-               sgTimeToNextTableUpdate = 3;
+            if (isFragged && sgTimeToNextTableUpdate>1)
+               sgTimeToNextTableUpdate = 1;
             calcMoveOrder( );
 
             // Borrow some blocks to ensuure space to defrag into
