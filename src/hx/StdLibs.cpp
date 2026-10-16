@@ -747,6 +747,32 @@ Dynamic __hxcpp_parse_int(const String &inString)
 }
 
 
+// SeiunEngine: upstream declares __hxcpp_parse_substr_int in include/hx/StdLibs.h
+// (and std/cpp/NativeString.hx binds it) but never defines it, so any use of
+// cpp.NativeString.parseSubstrInt fails to link on upstream 4.3.x. Restore the
+// 4.2.1 body the fork carried.
+int __hxcpp_parse_substr_int(const String &inString,int inStart, int inLen)
+{
+   if (!inString.raw_ptr())
+      return 0;
+   if (inLen<0)
+      inLen = inString.length - inStart;
+   long result;
+   hx::strbuf buf;
+   const char *str = inString.ascii_substr(&buf,inStart,inLen);
+   bool hex =  (str[0]=='0' && (str[1]=='x' || str[1]=='X'));
+   char *end = 0;
+
+   if (hex)
+      result = (long)strtoul(str+2,&end,16);
+   else
+      result = strtol(str,&end,10);
+   if (str==end)
+      return 0;
+   return (int)result;
+}
+
+
 double __hxcpp_parse_substr_float(const String &inString,int start, int length)
 {
    if (start>=inString.length || length<1 || (start+length)>inString.length )
