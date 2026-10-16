@@ -108,6 +108,82 @@ class Main {
 		var restored = Uncompress.run(compressed);
 		check("zlib roundtrip", restored.compare(data) == 0);
 
+		// ========== 3b. weak-key ephemeron semantics (upstream PR #1357) ==========
+		{
+			var result:{map:WeakMap<Obj, Obj>, key:cpp.vm.WeakRef<Obj>, value:cpp.vm.WeakRef<Obj>} = null;
+			var sema = new sys.thread.Semaphore(0);
+			sys.thread.Thread.create(() -> {
+				var m = new WeakMap<Obj, Obj>();
+				var k = new Obj(101);
+				var v = new Obj(102);
+				m.set(k, v);
+				result = {map: m, key: new cpp.vm.WeakRef(k), value: new cpp.vm.WeakRef(v)};
+				sema.release();
+			});
+			sema.acquire();
+			Sys.sleep(0.1);
+			cpp.vm.Gc.run(true);
+			check("ephemeron: dead key releases the value", result.key.get() == null && result.value.get() == null);
+			check("ephemeron: dead entry is gone", !result.map.keys().hasNext());
+		}
+		{
+			var live:WeakMap<Obj, Obj> = null;
+			var value:cpp.vm.WeakRef<Obj> = null;
+			var kept:Obj = null;
+			var sema = new sys.thread.Semaphore(0);
+			sys.thread.Thread.create(() -> {
+				var m = new WeakMap<Obj, Obj>();
+				var k = new Obj(103);
+				var v = new Obj(104);
+				m.set(k, v);
+				kept = k;
+				live = m;
+				value = new cpp.vm.WeakRef(v);
+				sema.release();
+			});
+			sema.acquire();
+			Sys.sleep(0.1);
+			cpp.vm.Gc.run(true);
+			check("ephemeron: live key keeps its value", value.get() != null);
+			check("ephemeron: live key still maps", live.get(kept) != null);
+		}
+		{
+			var maps:{up:WeakMap<Obj, Obj>, down:WeakMap<Obj, Obj>} = null;
+			var finalValue:cpp.vm.WeakRef<Obj> = null;
+			var kept:Obj = null;
+			var sema = new sys.thread.Semaphore(0);
+			sys.thread.Thread.create(() -> {
+				// register the downstream map first so a single pass would miss it
+				var down = new WeakMap<Obj, Obj>();
+				var up = new WeakMap<Obj, Obj>();
+				var rootKey = new Obj(105);
+				var linkKey = new Obj(106);
+				var leaf = new Obj(107);
+				down.set(linkKey, leaf);
+				up.set(rootKey, linkKey);
+				kept = rootKey;
+				maps = {up: up, down: down};
+				finalValue = new cpp.vm.WeakRef(leaf);
+				sema.release();
+			});
+			sema.acquire();
+			Sys.sleep(0.1);
+			cpp.vm.Gc.run(true);
+			var linkKey = maps.up.get(kept);
+			check("ephemeron: chained weak maps reach a fixed point",
+				linkKey != null && maps.down.get(linkKey) != null && finalValue.get() != null);
+		}
+
+		// ========== 5b. large zlib-ng round trip ==========
+		{
+			var big = Bytes.alloc(3 * 1024 * 1024);
+			for (i in 0...big.length)
+				big.set(i, ((i * 31) ^ (i >> 8)) & 0xFF);
+			var c = Compress.run(big, 9);
+			var back = Uncompress.run(c);
+			check("zlib: 3MB round trip (multi 64K chunk)", back.length == big.length && back.compare(big) == 0);
+		}
+
 		if (failures == 0)
 			trace("ALL TESTS PASSED");
 		else
