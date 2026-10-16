@@ -32,6 +32,9 @@ class Progress
 	static var started:Int = 0;
 	static var current:String = "";
 	static var compiled = new Array<String>();
+	static var compiledGroup = new Array<String>();
+	static var currentGroup:String = "";
+	static var listEnabled:Bool = true;
 	static var fileListPath:String = null;
 
 	static inline var BAR_WIDTH = 24;
@@ -45,6 +48,12 @@ class Progress
 
 		I18n.init();
 		ascii = !I18n.unicodeOk;
+
+		var noList = norm(Sys.getEnv("SEIUN_PROGRESS_NOLIST"));
+		if (noList == null || noList == "")
+			noList = norm(Sys.getEnv("HXCPP_PROGRESS_NOLIST"));
+		if (noList == "1" || noList == "true" || noList == "yes" || noList == "on")
+			listEnabled = false;
 
 		if (Log.quiet || Log.verbose)
 			return;
@@ -104,6 +113,7 @@ class Progress
 
 	public static function startGroup(i:Int, n:Int, id:String, files:Int, offset:Int):Void
 	{
+		currentGroup = id;
 		if (!enabled || files <= 0)
 			return;
 		dropLine();
@@ -124,7 +134,15 @@ class Progress
 	public static function fileDone(name:String):Void
 	{
 		if (total > 0 && name != null)
+		{
+			// Compiles run on several threads; keep the two arrays in step.
+			if (Log.printMutex != null)
+				Log.printMutex.acquire();
 			compiled.push(name);
+			compiledGroup.push(currentGroup);
+			if (Log.printMutex != null)
+				Log.printMutex.release();
+		}
 
 		if (!enabled)
 			return;
@@ -179,6 +197,43 @@ class Progress
 
 		if (fileListPath != null)
 			Log.println("  " + I18n.t("progress.filelist", {count: compiled.length, path: fileListPath}));
+
+		printCompiledList();
+	}
+
+	/**
+	 * Print the files this run actually recompiled, grouped the way the build is
+	 * grouped. The in-place bar overwrites itself, so without this the record of
+	 * what was rebuilt scrolls away. Disable with SEIUN_PROGRESS_NOLIST=1.
+	 */
+	static function printCompiledList():Void
+	{
+		if (!enabled || !listEnabled || Log.quiet || compiled.length == 0)
+			return;
+
+		var order = new Array<String>();
+		var byGroup = new Map<String, Array<String>>();
+		for (i in 0...compiled.length)
+		{
+			var g = i < compiledGroup.length ? compiledGroup[i] : "";
+			if (!byGroup.exists(g))
+			{
+				byGroup.set(g, new Array<String>());
+				order.push(g);
+			}
+			byGroup.get(g).push(compiled[i]);
+		}
+
+		Log.println("  " + I18n.t("progress.listheader", {count: compiled.length}));
+		for (g in order)
+		{
+			var names = byGroup.get(g);
+			names.sort(Reflect.compare);
+			if (order.length > 1 && g != "")
+				Log.println("    \x1b[33;1m[" + g + "]\x1b[0m");
+			for (n in names)
+				Log.println("      " + n);
+		}
 	}
 
 	static function shorten(name:String):String

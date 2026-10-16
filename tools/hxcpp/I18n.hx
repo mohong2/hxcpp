@@ -186,6 +186,7 @@ class I18n
 		en.set("progress.file", "[{index}/{total}] {file}");
 		en.set("progress.failed", "== compile failed: {file} ==");
 		en.set("progress.filelist", "{count} files recompiled - full list: {path}");
+		en.set("progress.listheader", "Files recompiled in this run ({count}):");
 
 		var zh = new Map<String, String>();
 		zh.set("encoding.hint", en.get("encoding.hint"));
@@ -197,6 +198,7 @@ class I18n
 		zh.set("progress.file", "[{index}/{total}] {file}");
 		zh.set("progress.failed", "== 编译失败: {file} ==");
 		zh.set("progress.filelist", "本次重新编译 {count} 个文件 - 完整清单: {path}");
+		zh.set("progress.listheader", "本次重新编译的文件 ({count} 个):");
 
 		var tables = new Map<String, Map<String, String>>();
 		tables.set("en", en);
