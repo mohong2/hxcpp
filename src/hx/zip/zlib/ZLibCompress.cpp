@@ -72,6 +72,15 @@ hx::zip::Result hx::zip::zlib::ZLibCompress::execute(cpp::marshal::View<uint8_t>
 	handle->avail_in  = src.length;
 	handle->avail_out = dst.length;
 
+	// The legacy haxe.zip API (used by the Haxe 4.3 std bindings in
+	// haxe/zip/{Compress,Uncompress}.hx) reports the byte counts of THIS call,
+	// while zlib's total_in/total_out are cumulative for the whole stream.
+	// Returning the cumulative values makes Uncompress.run() write past its
+	// 64K scratch buffer on the second iteration (Bytes.addBytes throws
+	// OutsideBounds), so report per-call deltas instead.
+	auto totalInBefore  = handle->total_in;
+	auto totalOutBefore = handle->total_out;
+
 	EnterGCFreeZone();
 	auto error = deflate(handle, flush);
 	ExitGCFreeZone();
@@ -84,8 +93,8 @@ hx::zip::Result hx::zip::zlib::ZLibCompress::execute(cpp::marshal::View<uint8_t>
 	return
 		Result(
 			error == Z_STREAM_END,
-			static_cast<int>(handle->total_in),
-			static_cast<int>(handle->total_out));
+			static_cast<int>(handle->total_in - totalInBefore),
+			static_cast<int>(handle->total_out - totalOutBefore));
 }
 
 void hx::zip::zlib::ZLibCompress::setFlushMode(Flush mode)
