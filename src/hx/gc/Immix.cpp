@@ -7163,21 +7163,22 @@ hx::Object *__hxcpp_id_obj(int inId)
    #endif
 }
 
-#ifdef HXCPP_USE_OBJECT_MAP
+#if defined(HXCPP_GC_MOVING) || defined(HXCPP_FORCE_OBJ_MAP)
 unsigned int __hxcpp_obj_hash(Dynamic inObj)
 {
    return __hxcpp_obj_id(inObj);
 }
 #else
+// Objects stay where they are, so the address is the hash. Allocations are
+// 8-byte aligned, so the low 3 bits carry nothing
 unsigned int __hxcpp_obj_hash(Dynamic inObj)
 {
    if (!inObj.mPtr) return 0;
-   hx::Object *obj = inObj.mPtr;
+   size_t h = (size_t)inObj.mPtr >> 3;
    #if defined(HXCPP_M64)
-   size_t h64 = (size_t)obj;
-   return (unsigned int)(h64>>2) ^ (unsigned int)(h64>>32);
+   return (unsigned int)h ^ (unsigned int)(h>>32);
    #else
-   return ((unsigned int)inObj.mPtr) >> 4;
+   return (unsigned int)h;
    #endif
 }
 #endif
