@@ -3259,21 +3259,38 @@ public:
 
    void FreeLarge(void *inLarge)
    {
-#ifdef HXCPP_TELEMETRY
-       __hxt_gc_free_large(inLarge);
-#endif
+      unsigned int *blob = ((unsigned int *)inLarge) - 2;
+      mLargeListLock.lock();
+      // Only an allocation on the large list is freed here. A block object can
+      // be as big: InternalNew rounds 3997 to 3999 bytes up to 4000 after
+      // choosing a block, and objects up to IMMIX_MAX_BLOCK_OBJECT_SIZE are
+      // allocated in blocks inline. Recycling one queued part of a block to be
+      // freed by the next collection (libhxcpp #257).
+      // Search from the end - the realloc-growth path frees the buffer it
+      // just allocated, which is the most recently pushed entry, so the
+      // common case finds it immediately instead of scanning the whole list.
+      int index = -1;
+      for(int i=mLargeList.size()-1;i>=0;i--)
+         if (mLargeList[i]==blob)
+         {
+            index = i;
+            break;
+         }
+      if (index<0)
+      {
+         mLargeListLock.unlock();
+         return;
+      }
 
       ((unsigned char *)inLarge)[HX_ENDIAN_MARK_ID_BYTE] = 0;
       // AllocLarge will not lock this list unless it decides there is a suitable
       //  value, so we can't doa realloc without potentially crashing it.
       if (largeObjectRecycle.hasExtraCapacity(1))
       {
-         unsigned int *blob = ((unsigned int *)inLarge) - 2;
          unsigned int size = *blob;
-         mLargeListLock.lock();
          mLargeAllocated -= size;
          // Could somehow keep it in the list, but mark as recycled?
-         mLargeList.qerase_val(blob);
+         mLargeList.qerase(index);
          // We could maybe free anyhow?
          if (!largeObjectRecycle.hasExtraCapacity(1))
          {
@@ -3282,8 +3299,14 @@ public:
             return;
          }
          largeObjectRecycle.push(blob);
-         mLargeListLock.unlock();
       }
+      // No room to recycle it: leave it on the list with the mark cleared so
+      // the next sweep frees it.
+      mLargeListLock.unlock();
+
+#ifdef HXCPP_TELEMETRY
+       __hxt_gc_free_large(inLarge);
+#endif
    }
 
    void *AllocLarge(size_t inSize, bool inClear)
