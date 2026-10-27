@@ -7,6 +7,12 @@ using namespace hx;
 
 // --- HashRoot ---------------------------------------------------
 
+int &hx::HashToStringDepth()
+{
+   static thread_local int depth = 0;
+   return depth;
+}
+
 int __root_hash_size(Dynamic &rtHash)
 {
    HashRoot *hash = static_cast<HashRoot *>(rtHash.GetPtr());

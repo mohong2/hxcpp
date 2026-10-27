@@ -279,6 +279,30 @@ struct HashRoot : public Object
    inline int getSize() { return size; }
 };
 
+// How many maps this thread is formatting, one inside another.  A map that
+//  held itself, directly or through other maps, recursed until the native
+//  stack overflowed; past 5, as for arrays and anonymous objects, a map
+//  formats as "...".  Per thread, and given back when a key or value's
+//  toString throws
+int &HashToStringDepth();
+
+struct ToStringDepth
+{
+   bool tooDeep;
+   ToStringDepth()
+   {
+      int &depth = HashToStringDepth();
+      tooDeep = depth >= 5;
+      if (!tooDeep)
+         depth++;
+   }
+   ~ToStringDepth()
+   {
+      if (!tooDeep)
+         HashToStringDepth()--;
+   }
+};
+
 template<typename KEY>
 struct HashBase : public HashRoot
 {
@@ -807,6 +831,9 @@ struct Hash : public HashBase< typename ELEMENT::Key >
 
    String toString() HXCPP_OVERRIDE
    {
+      ToStringDepth depth;
+      if (depth.tooDeep)
+         return HX_CSTRING("...");
       StringBuilder builder(getSize());
       iterate(builder);
       return builder.toString();
@@ -815,6 +842,9 @@ struct Hash : public HashBase< typename ELEMENT::Key >
 
    String toStringRaw() HXCPP_OVERRIDE
    {
+      ToStringDepth depth;
+      if (depth.tooDeep)
+         return HX_CSTRING("...");
       StringBuilder builder(getSize(),true);
       iterate(builder);
       return builder.toString();
