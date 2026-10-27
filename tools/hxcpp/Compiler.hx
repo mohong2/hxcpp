@@ -36,6 +36,9 @@ enum Language {
 
 class Compiler
 {
+   // Longest object file base name kept as it is; longer ones are cut and hashed
+   static inline var MAX_OBJ_NAME = 48;
+
    private var mFlags:Array<FlagInfo>;
    public var mCFlags:Array<String>;
    public var mNvccFlags:Array<String>;
@@ -569,8 +572,13 @@ class Compiler
 
       var path = new Path(inFile.mName);
       var dirId = Md5.encode(BuildTool.targetKey + path.dir + inFile.mGroup.mId).substr(0,8) + "_";
+      var file = path.file;
+      // A generic instance is named after its parameter's whole path, so keep
+      // its object path from reaching MAX_PATH before the source does (libhxcpp #356)
+      if (file.length > MAX_OBJ_NAME)
+         file = file.substr(0, MAX_OBJ_NAME - 9) + "_" + Md5.encode(file).substr(0,8);
 
-      return PathManager.combine(mObjDir, inFile.mGroup.mObjPrefix + dirId + path.file + (isRc ? mRcExt : mExt) );
+      return PathManager.combine(mObjDir, inFile.mGroup.mObjPrefix + dirId + file + (isRc ? mRcExt : mExt) );
    }
 
    function getHashedName(inFile:File, args:Array<String>)
