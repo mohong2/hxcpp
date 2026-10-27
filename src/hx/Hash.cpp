@@ -356,6 +356,11 @@ void __int64_hash_set(HX_MAP_THIS_ARG, cpp::Int64 inKey, const Dynamic &value)
             if (hash->store==hashString)
                want = hashString;
          }
+         else if (type==vtInt64)
+         {
+            if (hash->store==hashInt || hash->store==hashInt64)
+               want = hashInt64;
+         }
       }
       if (hash->store!=want)
       {
