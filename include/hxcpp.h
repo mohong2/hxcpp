@@ -190,13 +190,15 @@ typedef char HX_CHAR;
 #define HX_CSTRING2(wide,len,utf8) HX_STRI(utf8)
 
 #ifdef HX_SMART_STRINGS
-  #define HX_FIELD_EQ(name,field) (name.isAsciiEncoded() && !::memcmp(name.raw_ptr(), field, sizeof(field)/sizeof(char)))
+  // The length first, as HX_QSTR_EQ does: comparing the literal's bytes with its
+  //  terminator read past the end of a shorter name
+  #define HX_FIELD_EQ(name,field) (name.length==(int)(sizeof(field)/sizeof(char))-1 && name.isAsciiEncoded() && !::memcmp(name.raw_ptr(), field, sizeof(field)/sizeof(char)-1))
   // No null check is performedd...
   #define HX_QSTR_EQ(name,field) (name.length==field.length && field.isAsciiEncodedQ() && !::memcmp(name.raw_ptr(), field.raw_ptr() , field.length) )
   // field is known to be isAsciiEncodedQ
   #define HX_QSTR_EQ_AE(name,field) (name.length==field.length && !::memcmp(name.raw_ptr(), field.raw_ptr() , field.length) )
 #else
-  #define HX_FIELD_EQ(name,field) !::memcmp(name.__s, field, sizeof(field)/sizeof(char))
+  #define HX_FIELD_EQ(name,field) (name.length==(int)(sizeof(field)/sizeof(char))-1 && !::memcmp(name.__s, field, sizeof(field)/sizeof(char)-1))
   // No null check is performed....
   #define HX_QSTR_EQ(name,field) (name.length==field.length && !::memcmp(name.__s, field.__s, field.length))
   #define HX_QSTR_EQ_AE(name,field) (name.length==field.length && !::memcmp(name.__s, field.__s, field.length))
