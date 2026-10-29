@@ -4334,6 +4334,10 @@ public:
 
       hx::VisitClassStatics(inCtx);
 
+      {
+      // Threads in GC free zones, or not registered at all, can still add and remove roots
+      std::lock_guard<std::mutex> rootLock(*hx::sGCRootLock);
+
       for(hx::RootSet::iterator i = hx::sgRootSet.begin(); i!=hx::sgRootSet.end(); ++i)
       {
          hx::Object **obj = *i;
@@ -4357,6 +4361,7 @@ public:
                   *(char **)(i->first) = (char *)(obj) + offset;
             }
          }
+      } // rootLock
 
       if (hx::sgFinalizers)
          for(int i=0;i<hx::sgFinalizers->size();i++)
@@ -4780,6 +4785,8 @@ public:
 
       {
       hx::AutoMarkPush info(&mMarker,"Roots","root");
+      // Threads in GC free zones, or not registered at all, can still add and remove roots
+      std::lock_guard<std::mutex> rootLock(*hx::sGCRootLock);
 
       for(hx::RootSet::iterator i = hx::sgRootSet.begin(); i!=hx::sgRootSet.end(); ++i)
       {
