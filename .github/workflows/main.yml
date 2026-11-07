@@ -24,6 +24,13 @@ jobs:
       fail-fast: false
       matrix:
         haxe: [ 4.3.7, latest ]
+        # The "latest" (Haxe 5.0.0-preview) legs cannot build against a fork of
+        # hxcpp v4.3.175: the preview backend emits std glue that includes
+        # <haxe/EventLoop.h>, which in turn needs "hx/atomic/AtomicInt.hpp" -
+        # headers upstream only added *after* v4.3.175 (include/hx/atomic/).
+        # Remove this exclude once the fork is ported to hxcpp 5.
+        exclude:
+          - haxe: latest
     uses: ./.github/workflows/test.yml
     name: Test Windows (32bit)
     with:
@@ -38,6 +45,13 @@ jobs:
       fail-fast: false
       matrix:
         haxe: [ 4.3.7, latest ]
+        # The "latest" (Haxe 5.0.0-preview) legs cannot build against a fork of
+        # hxcpp v4.3.175: the preview backend emits std glue that includes
+        # <haxe/EventLoop.h>, which in turn needs "hx/atomic/AtomicInt.hpp" -
+        # headers upstream only added *after* v4.3.175 (include/hx/atomic/).
+        # Remove this exclude once the fork is ported to hxcpp 5.
+        exclude:
+          - haxe: latest
     uses: ./.github/workflows/test.yml
     name: Test Windows (64bit)
     with:
@@ -52,6 +66,13 @@ jobs:
       fail-fast: false
       matrix:
         haxe: [ 4.3.7, latest ]
+        # The "latest" (Haxe 5.0.0-preview) legs cannot build against a fork of
+        # hxcpp v4.3.175: the preview backend emits std glue that includes
+        # <haxe/EventLoop.h>, which in turn needs "hx/atomic/AtomicInt.hpp" -
+        # headers upstream only added *after* v4.3.175 (include/hx/atomic/).
+        # Remove this exclude once the fork is ported to hxcpp 5.
+        exclude:
+          - haxe: latest
     uses: ./.github/workflows/test.yml
     name: Test MacOS (x86_64)
     with:
@@ -66,6 +87,13 @@ jobs:
       fail-fast: false
       matrix:
         haxe: [ 4.3.7, latest ]
+        # The "latest" (Haxe 5.0.0-preview) legs cannot build against a fork of
+        # hxcpp v4.3.175: the preview backend emits std glue that includes
+        # <haxe/EventLoop.h>, which in turn needs "hx/atomic/AtomicInt.hpp" -
+        # headers upstream only added *after* v4.3.175 (include/hx/atomic/).
+        # Remove this exclude once the fork is ported to hxcpp 5.
+        exclude:
+          - haxe: latest
     uses: ./.github/workflows/test.yml
     name: Test MacOS (Arm64)
     with:
@@ -80,6 +108,13 @@ jobs:
       fail-fast: false
       matrix:
         haxe: [ 4.3.7, latest ]
+        # The "latest" (Haxe 5.0.0-preview) legs cannot build against a fork of
+        # hxcpp v4.3.175: the preview backend emits std glue that includes
+        # <haxe/EventLoop.h>, which in turn needs "hx/atomic/AtomicInt.hpp" -
+        # headers upstream only added *after* v4.3.175 (include/hx/atomic/).
+        # Remove this exclude once the fork is ported to hxcpp 5.
+        exclude:
+          - haxe: latest
     uses: ./.github/workflows/test.yml
     name: Test Linux (32bit)
     with:
@@ -94,6 +129,13 @@ jobs:
       fail-fast: false
       matrix:
         haxe: [ 4.3.7, latest ]
+        # The "latest" (Haxe 5.0.0-preview) legs cannot build against a fork of
+        # hxcpp v4.3.175: the preview backend emits std glue that includes
+        # <haxe/EventLoop.h>, which in turn needs "hx/atomic/AtomicInt.hpp" -
+        # headers upstream only added *after* v4.3.175 (include/hx/atomic/).
+        # Remove this exclude once the fork is ported to hxcpp 5.
+        exclude:
+          - haxe: latest
     uses: ./.github/workflows/test.yml
     name: Test Linux (64bit)
     with:
