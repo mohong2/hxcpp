@@ -21,15 +21,22 @@
 // is spelled differently by every object format, and every spelling below is
 // load-bearing - getting one wrong is not a warning, it is a failed link:
 //
-//   ELF    (gcc, clang)      __attribute__((weak))         undefined weak -> 0
-//   Mach-O (Apple clang)     __attribute__((weak_import))  plain "weak" only
-//                            modifies a *definition* on Darwin; as a reference it
-//                            is emitted strong and ld64 stops with "Undefined
-//                            symbols for architecture ..., referenced from: _main".
-//   COFF   (MSVC, clang-cl)  /alternatename                see the stub below.
+//   ELF    (gcc, clang)      weak *reference*: an undefined weak symbol
+//                            resolves to 0 and the dispatch helper checks it.
+//   Mach-O (Apple clang)     weak *definition*: an executable may not leave the
+//                            symbol undefined at all - ld64 stops with
+//                            "Undefined symbols for architecture arm64:
+//                            _seiun_fatal_report, referenced from: _main" even
+//                            for a plain .weak_reference - so the fallback is
+//                            defined in this header and a strong definition in
+//                            the application coalesces over it.
+//   COFF   (MSVC, clang-cl)  /alternatename stub, with the decorated name.
 
 #ifdef __cplusplus
 #include <exception>
+#endif
+#if defined(__APPLE__) && defined(__cplusplus)
+#include <cstdio>
 #endif
 
 #ifdef __cplusplus
@@ -42,8 +49,8 @@ extern "C" {
    // link.exe/lld-link, which understand the same option.)
    void seiun_fatal_report(const char* kind, const char* msg, const char* detail);
 #elif defined(__APPLE__)
-   void seiun_fatal_report(const char* kind, const char* msg, const char* detail) __attribute__((weak_import));
-#  define SEIUN_FATAL_REPORT_IS_WEAK 1
+   // Mach-O: attribute is on the definition (below), not on a reference.
+   void seiun_fatal_report(const char* kind, const char* msg, const char* detail) __attribute__((weak));
 #elif defined(__GNUC__) || defined(__clang__)
    void seiun_fatal_report(const char* kind, const char* msg, const char* detail) __attribute__((weak));
 #  define SEIUN_FATAL_REPORT_IS_WEAK 1
@@ -167,7 +174,17 @@ static void seiun_top_level_report(const char* kind, const char* msg, const char
    extern "C" int __stdcall MultiByteToWideChar(unsigned int,unsigned long,const char *,int,wchar_t *,int);
    #endif
 
-#ifndef SEIUN_FATAL_REPORT_IS_WEAK
+#if defined(__APPLE__)
+   // Fallback reporter for Mach-O, see the declaration above. Only reached when
+   // the application defines no reporter of its own (the engine always does).
+   // printf rather than MessageBoxW: drawing the dialog is the engine's job.
+   extern "C" void seiun_fatal_report(const char* kind, const char* msg, const char* detail)
+   {
+      (void)kind;
+      (void)detail;
+      printf("Fatal error : %s\n", (msg != NULL && msg[0]) ? msg : "unknown fatal error");
+   }
+#elif defined(_MSC_VER)
    // MSVC cannot express a weak function reference. /alternatename makes the
    // linker bind seiun_fatal_report to this stub instead of failing when the
    // application does not define it (a real definition, as in the engine, wins
