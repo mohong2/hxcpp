@@ -53,10 +53,18 @@ namespace
         return res;
     }
 
+    // std::atomic<T>::value_type only exists in libstdc++/MSVC; libc++ (the
+    // NDK's libc++ is what the Android target uses) has no such member. T is the
+    // same thing, but it goes through a trait so that it stays a NON-deduced
+    // context: call sites like atomic_compare_exchange_strong_discard(&flag, 0, 1)
+    // on a std::atomic<unsigned> keep deducing T from the pointer alone.
     template<class T>
-    bool atomic_compare_exchange_strong_discard(std::atomic<T>* obj, typename std::atomic<T>::value_type expected, typename std::atomic<T>::value_type desired)
+    struct seiun_atomic_value { typedef T type; };
+
+    template<class T>
+    bool atomic_compare_exchange_strong_discard(std::atomic<T>* obj, typename seiun_atomic_value<T>::type expected, typename seiun_atomic_value<T>::type desired)
     {
-        typename std::atomic<T>::value_type v{ expected };
+        T v{ expected };
 
         return obj->compare_exchange_strong(v, desired);
     }
