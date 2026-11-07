@@ -309,6 +309,52 @@ int _hx_std_file_tell( Dynamic handle )
 }
 
 /**
+   file_seek64 : 'file -> posLo:int -> posHi:int -> mode:int -> void
+   <doc>
+   Same as file_seek, with a 64-bit offset given as two 32-bit halves (lo first). The int version
+   above cannot address past 2 GiB, and a caller that narrows a 64-bit offset into an Int32 does not
+   even get an error when the value wraps back into range - it silently seeks somewhere else.
+   </doc>
+**/
+void _hx_std_file_seek64( Dynamic handle, int posLo, int posHi, int kind )
+{
+   fio *f = getFio(handle);
+   // Build the 64-bit value without relying on an unsigned->signed cast of the combined literal.
+   int64_t pos = ((int64_t)posHi << 32) | (int64_t)(uint32_t)posLo;
+   hx::EnterGCFreeZone();
+#ifdef HX_WINDOWS
+   if( _fseeki64(f->io,pos,kind) != 0 )
+      file_error("file_seek64",f->name);
+#else
+   if( fseeko(f->io,(off_t)pos,kind) != 0 )
+      file_error("file_seek64",f->name);
+#endif
+   hx::ExitGCFreeZone();
+}
+
+/**
+   file_tell64 : 'file -> outLo:int* -> outHi:int* -> void
+   <doc>
+   Writes the current 64-bit position into the two out-parameters (lo first).
+   </doc>
+**/
+void _hx_std_file_tell64( Dynamic handle, int *outLo, int *outHi )
+{
+   fio *f = getFio(handle);
+   hx::EnterGCFreeZone();
+#ifdef HX_WINDOWS
+   int64_t p = _ftelli64(f->io);
+#else
+   int64_t p = (int64_t)ftello(f->io);
+#endif
+   if( p == -1 )
+      file_error("file_tell64",f->name);
+   hx::ExitGCFreeZone();
+   if( outLo ) *outLo = (int)(uint32_t)(p & 0xFFFFFFFF);
+   if( outHi ) *outHi = (int)(p >> 32);
+}
+
+/**
    file_eof : 'file -> bool
    <doc>Tell if we have reached the end of the file</doc>
 **/

@@ -883,6 +883,11 @@ HXCPP_EXTERN_CLASS_ATTRIBUTES int _hx_std_file_read( Dynamic handle, Array<unsig
 HXCPP_EXTERN_CLASS_ATTRIBUTES int _hx_std_file_read_char( Dynamic handle );
 HXCPP_EXTERN_CLASS_ATTRIBUTES void _hx_std_file_seek( Dynamic handle, int pos, int kind );
 HXCPP_EXTERN_CLASS_ATTRIBUTES int _hx_std_file_tell( Dynamic handle );
+// 64-bit file offsets. sys.io.FileInput.seek() takes an Int, so a chart part larger than 2 GiB
+// cannot be addressed with the int entry points above (and a wrapped value silently seeks to the
+// wrong byte). These take the offset as two 32-bit halves so the Haxe side can pass a haxe Int64.
+HXCPP_EXTERN_CLASS_ATTRIBUTES void _hx_std_file_seek64( Dynamic handle, int posLo, int posHi, int kind );
+HXCPP_EXTERN_CLASS_ATTRIBUTES void _hx_std_file_tell64( Dynamic handle, int *outLo, int *outHi );
 HXCPP_EXTERN_CLASS_ATTRIBUTES bool _hx_std_file_eof( Dynamic handle );
 HXCPP_EXTERN_CLASS_ATTRIBUTES void _hx_std_file_flush( Dynamic handle );
 HXCPP_EXTERN_CLASS_ATTRIBUTES String _hx_std_file_contents_string( String name );
