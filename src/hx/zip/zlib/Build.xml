@@ -17,6 +17,12 @@
 
     <compilerflag value="-I${ZLIB_DIR}"/>
 
+    <!-- No ZLIB_WINAPI: it switches ZEXPORT to WINAPI (__stdcall), and only this
+         group was being given it. On Win32 the consumers (ZLibCompress.cpp /
+         ZLibUncompress.cpp, group hxcpp_zlib_impl) then asked for _deflate while
+         the library defined _deflate@8 - LNK2019 in test/std, test/cppia and the
+         haxe test suite. x64 hides it because __stdcall decorates nothing there.
+         Upstream hxcpp builds zlib with the default convention too. -->
     <compilerflag value="-DWITH_GZFILEOP" />
     <compilerflag value="-DWITH_OPTIM" />
     <compilerflag value="-DZLIB_COMPAT" />
@@ -24,7 +30,6 @@
     <section unless="isMsvc">
 
       <compilerflag value="-DHAVE_UNISTD_H" />
-      <compilerflag value="-DZLIB_WINAPI" if="windows" />
       <compilerflag value="-DHAVE_CPUID_GNU" unless="HXCPP_ARMV7 || HXCPP_ARM64" />
       <compilerflag value="-DHAVE_ATTRIBUTE_ALIGNED" />
       <compilerflag value="-DHAVE_BUILTIN_ASSUME_ALIGNED" />
@@ -36,7 +41,6 @@
 
       <compilerflag value="-D_CRT_SECURE_NO_DEPRECATE" />
       <compilerflag value="-D_CRT_NONSTDC_NO_DEPRECATE" />
-      <compilerflag value="-DZLIB_WINAPI" />
 
       <section unless="HXCPP_ARM64">
 
