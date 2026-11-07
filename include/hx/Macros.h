@@ -239,7 +239,8 @@ int __stdcall WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmd
 #else
 
 #define HX_BEGIN_MAIN \
-extern "C" int __stdcall MessageBoxA(void *,const char *,const char *,int); \
+extern "C" int __stdcall MessageBoxW(void *,const wchar_t *,const wchar_t *,unsigned int); \
+extern "C" int __stdcall MultiByteToWideChar(unsigned int,unsigned long,const char *,int,wchar_t *,int); \
 \
 int __stdcall WinMain( void * hInstance, void * hPrevInstance, const char *lpCmdLine, int nCmdShow) \
 { \
@@ -254,7 +255,13 @@ int __stdcall WinMain( void * hInstance, void * hPrevInstance, const char *lpCmd
 	} \
 	catch ( ::Dynamic e){ \
 		__hx_dump_stack(); \
-		MessageBoxA(0,  e->toString().__CStr(), "Error", 0); \
+		{ \
+			wchar_t __seiun_wide[2048]; \
+			if ( MultiByteToWideChar(65001, 0x00000008, e->toString().__CStr(), -1, __seiun_wide, 2047) > 0 ) \
+				MessageBoxW(0, __seiun_wide, L"SeiunEngine - Error", 0); \
+			else \
+				MessageBoxW(0, L"(unprintable error)", L"SeiunEngine - Error", 0); \
+		} \
       return -1; \
 	} \
 	return 0; \

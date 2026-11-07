@@ -94,8 +94,25 @@ static void CriticalErrorHandler(String inErr, bool allowFixup)
     DBGLOG("Critical Error: %s\n", inErr.utf8_str());
 
 #if defined(HX_WINDOWS) && !defined(HX_WINRT)
-    MessageBoxA(0, inErr.utf8_str(), "Critical Error - program must terminate",
-        MB_ICONEXCLAMATION|MB_OK);
+    // UTF-16 end to end: MessageBoxA decoded the UTF-8 text with the ANSI code
+    // page, so a Chinese message turned into mojibake exactly when the VM was
+    // already in trouble and the text was the only thing left to read.
+    {
+        static const unsigned int CP_UTF8_SEIUN = 65001;
+        static const unsigned long MB_ERR_INVALID_CHARS_SEIUN = 0x00000008;
+        const char *utf8 = inErr.utf8_str();
+        wchar_t wide[2048];
+        int n = MultiByteToWideChar(CP_UTF8_SEIUN, MB_ERR_INVALID_CHARS_SEIUN, utf8, -1, wide, 2047);
+        if (n > 0)
+        {
+            MessageBoxW(0, wide, L"SeiunEngine - Critical Error", MB_ICONEXCLAMATION | 0);
+        }
+        else
+        {
+            MessageBoxW(0, L"(the error text was not valid UTF-8)", L"SeiunEngine - Critical Error",
+                MB_ICONEXCLAMATION | 0);
+        }
+    }
 #endif
 
     // Good when using gdb, and to collect a core ...
