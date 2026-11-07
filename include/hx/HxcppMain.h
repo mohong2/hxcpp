@@ -17,8 +17,16 @@
 //
 // The reporter symbol lives in the executable, i.e. in the same image as this
 // header. It is still declared *optionally* so that any other project built
-// against this fork keeps linking and keeps the legacy behaviour: weak symbol
-// on GCC/Clang, /alternatename stub on MSVC.
+// against this fork keeps linking and keeps the legacy behaviour. "Optional"
+// is spelled differently by every object format, and every spelling below is
+// load-bearing - getting one wrong is not a warning, it is a failed link:
+//
+//   ELF    (gcc, clang)      __attribute__((weak))         undefined weak -> 0
+//   Mach-O (Apple clang)     __attribute__((weak_import))  plain "weak" only
+//                            modifies a *definition* on Darwin; as a reference it
+//                            is emitted strong and ld64 stops with "Undefined
+//                            symbols for architecture ..., referenced from: _main".
+//   COFF   (MSVC, clang-cl)  /alternatename                see the stub below.
 
 #ifdef __cplusplus
 #include <exception>
@@ -27,7 +35,16 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#if defined(__GNUC__) || defined(__clang__)
+#if defined(_MSC_VER)
+   // COFF: no syntax for a weak function reference, so the reference is emitted
+   // strong and the /alternatename stub further down supplies a body when the
+   // application defines none. (clang-cl defines _MSC_VER too and links with
+   // link.exe/lld-link, which understand the same option.)
+   void seiun_fatal_report(const char* kind, const char* msg, const char* detail);
+#elif defined(__APPLE__)
+   void seiun_fatal_report(const char* kind, const char* msg, const char* detail) __attribute__((weak_import));
+#  define SEIUN_FATAL_REPORT_IS_WEAK 1
+#elif defined(__GNUC__) || defined(__clang__)
    void seiun_fatal_report(const char* kind, const char* msg, const char* detail) __attribute__((weak));
 #  define SEIUN_FATAL_REPORT_IS_WEAK 1
 #else
@@ -153,7 +170,8 @@ static void seiun_top_level_report(const char* kind, const char* msg, const char
 #ifndef SEIUN_FATAL_REPORT_IS_WEAK
    // MSVC cannot express a weak function reference. /alternatename makes the
    // linker bind seiun_fatal_report to this stub instead of failing when the
-   // application does not define it.
+   // application does not define it (a real definition, as in the engine, wins
+   // over the alternate name).
    extern "C" void seiun_fatal_report_stub(const char* kind, const char* msg, const char* detail)
    {
       (void)kind;
@@ -170,7 +188,14 @@ static void seiun_top_level_report(const char* kind, const char* msg, const char
       printf("Fatal error : %s\n", text);
 #endif
    }
+   // /alternatename takes the *decorated* COFF name: x86 C functions carry a
+   // leading underscore, x64/ARM64 ones do not. An undecorated name on x86 is
+   // silently ignored and the link dies with LNK2019 _seiun_fatal_report.
+#if defined(_M_IX86)
+   #pragma comment(linker, "/alternatename:_seiun_fatal_report=_seiun_fatal_report_stub")
+#else
    #pragma comment(linker, "/alternatename:seiun_fatal_report=seiun_fatal_report_stub")
+#endif
 #endif
 
    #if defined(TIZEN)
