@@ -552,6 +552,9 @@ inline Dynamic __hxcpp_atomic_object_create(Dynamic value) {
 }
 
 inline Dynamic __hxcpp_atomic_object_store(Dynamic dynObj, Dynamic val) {
+  // A thread spinning on one must still reach a safe point (libhxcpp #455)
+  if (hx::gPauseForCollect)
+    __hxcpp_gc_safe_point();
   AtomicObject *obj = dynamic_cast<AtomicObject *>(dynObj.mPtr);
   if (!obj)
     throw HX_INVALID_OBJECT;
@@ -559,6 +562,9 @@ inline Dynamic __hxcpp_atomic_object_store(Dynamic dynObj, Dynamic val) {
 }
 
 inline Dynamic __hxcpp_atomic_object_load(Dynamic dynObj) {
+  // A thread spinning on one must still reach a safe point (libhxcpp #455)
+  if (hx::gPauseForCollect)
+    __hxcpp_gc_safe_point();
   AtomicObject *obj = dynamic_cast<AtomicObject *>(dynObj.mPtr);
   if (!obj)
     throw HX_INVALID_OBJECT;
@@ -566,6 +572,9 @@ inline Dynamic __hxcpp_atomic_object_load(Dynamic dynObj) {
 }
 
 inline Dynamic __hxcpp_atomic_object_exchange(Dynamic dynObj, Dynamic newVal) {
+  // A thread spinning on one must still reach a safe point (libhxcpp #455)
+  if (hx::gPauseForCollect)
+    __hxcpp_gc_safe_point();
   AtomicObject *obj = dynamic_cast<AtomicObject *>(dynObj.mPtr);
   if (!obj)
     throw HX_INVALID_OBJECT;
@@ -573,6 +582,9 @@ inline Dynamic __hxcpp_atomic_object_exchange(Dynamic dynObj, Dynamic newVal) {
 }
 
 inline Dynamic __hxcpp_atomic_object_compare_exchange(Dynamic dynObj, Dynamic expected, Dynamic replacement) {
+  // A thread spinning on one must still reach a safe point (libhxcpp #455)
+  if (hx::gPauseForCollect)
+    __hxcpp_gc_safe_point();
   AtomicObject *obj = dynamic_cast<AtomicObject *>(dynObj.mPtr);
   if (!obj)
     throw HX_INVALID_OBJECT;
