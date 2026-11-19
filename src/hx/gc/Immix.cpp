@@ -1232,7 +1232,7 @@ struct BlockDataInfo
    }
 
    #ifdef HXCPP_GC_NURSERY
-   AllocType GetEnclosingNurseryType(uintptr_t inOffset, uintptr_t* outPtr) const
+   AllocType GetEnclosingNurseryType(uintptr_t inOffset, uintptr_t* outPtr, uintptr_t inReach=sgCheckInternalOffset) const
    {
       // The block did not get used in the previous cycle, so allocStart is invalid and
       //  no new objects should be in here
@@ -1272,7 +1272,7 @@ struct BlockDataInfo
 
                if (inOffset>=scan && inOffset<end)
                {
-                  if (inOffset > scan + sgCheckInternalOffset)
+                  if (inOffset > scan + inReach)
                      return allocNone;
 
                   if (nullptr != outPtr)
@@ -1332,9 +1332,9 @@ struct BlockDataInfo
       return GetAllocTypeChecked(inOffset,inAllowPrevious);
    }
 
-   AllocType GetEnclosingAllocType(uintptr_t inOffset, uintptr_t* outPtr, bool inAllowPrevious) const
+   AllocType GetEnclosingAllocType(uintptr_t inOffset, uintptr_t* outPtr, bool inAllowPrevious, uintptr_t inReach=sgCheckInternalOffset) const
    {
-      for (uintptr_t dx{ 0 }; dx <= sgCheckInternalOffset; dx += 4)
+      for (uintptr_t dx{ 0 }; dx <= inReach && dx <= inOffset; dx += 4)
       {
          uintptr_t blockOffset{ inOffset - dx };
          if (blockOffset >= 0)
@@ -1374,7 +1374,7 @@ struct BlockDataInfo
       }
 
       #ifdef HXCPP_GC_NURSERY
-      return GetEnclosingNurseryType(inOffset,outPtr);
+      return GetEnclosingNurseryType(inOffset,outPtr,inReach);
       #endif
       // Not a actual start...
       return allocNone;
@@ -5652,7 +5652,18 @@ public:
       return false;
    }
 
-   MemType GetMemType(uintptr_t inPtr)
+   // Whether inPtr is inBase or at most inReach bytes into its allocation
+   static bool IsLargeAt(uintptr_t inBase, uintptr_t inPtr, size_t inReach)
+   {
+      uintptr_t offset = inPtr - inBase;
+      return offset==0 || (offset<=inReach && offset<reinterpret_cast<unsigned int *>(inBase)[-2]);
+   }
+
+   // With outBase, a pointer up to sgCheckInternalOffset bytes into a large
+   //  allocation finds it too, as GetEnclosingAllocType does in a block, and
+   //  outBase is set to where it starts. A pointer field passes inReach, which
+   //  may cover the whole allocation (libhxcpp #373, #451)
+   MemType GetMemType(uintptr_t inPtr, uintptr_t *outBase = nullptr, size_t inReach = 0)
    {
       BlockData* block{ reinterpret_cast<BlockData*>(inPtr & IMMIX_BLOCK_BASE_MASK) };
 
@@ -5661,14 +5672,20 @@ public:
       if (isBlock)
          return memBlock;
 
-      for(int i=0;i<mLargeList.size();i++)
+      size_t reach = outBase ? (inReach ? inReach : sgCheckInternalOffset) : 0;
+      uintptr_t base = 0;
+      for(int i=0;i<mLargeList.size() && !base;i++)
       {
          uintptr_t blob{ reinterpret_cast<uintptr_t>(mLargeList[i] + 2) };
-         if (blob==inPtr)
-            return memLarge;
+         if (IsLargeAt(blob, inPtr, reach))
+            base = blob;
       }
 
-      return memUnmanaged;
+      if (!base)
+         return memUnmanaged;
+      if (outBase)
+         *outBase = base;
+      return memLarge;
    }
 
 
@@ -5710,7 +5727,9 @@ MarkChunk *MarkChunk::swapForNew()
 
 
 
-void MarkConservative(int *inBottom, int *inTop,hx::MarkContext *__inCtx)
+// inReach is how far into an allocation a pointer may be and still keep it:
+//  0 for a stack word, which uses sgCheckInternalOffset
+static void MarkConservativeReach(int *inBottom, int *inTop,hx::MarkContext *__inCtx, uintptr_t inReach)
 {
    #ifdef VERIFY_STACK_READ
    VerifyStackRead(inBottom, inTop);
@@ -5767,7 +5786,8 @@ void MarkConservative(int *inBottom, int *inTop,hx::MarkContext *__inCtx)
          #ifdef PROFILE_COLLECT
          hx::localCount++;
          #endif
-         MemType mem{ sGlobalAlloc->GetMemType(potentialObject) };
+         uintptr_t largeBase{};
+         MemType mem{ sGlobalAlloc->GetMemType(potentialObject, &largeBase, inReach) };
 
          #ifdef HX_WATCH
          isWatch = false;
@@ -5783,6 +5803,9 @@ void MarkConservative(int *inBottom, int *inTop,hx::MarkContext *__inCtx)
          {
             if (mem==memLarge)
             {
+               // A pointer into it marks the allocation, as one into an object
+               //  in a block does; the mark lives in the allocation's header
+               potentialObject = largeBase;
                unsigned char& mark{ reinterpret_cast<unsigned char*>(potentialObject)[HX_ENDIAN_MARK_ID_BYTE] };
                if (mark != gByteMarkID)
                   mark = static_cast<unsigned char>(gByteMarkID);
@@ -5794,8 +5817,8 @@ void MarkConservative(int *inBottom, int *inTop,hx::MarkContext *__inCtx)
 
                size_t pos{ potentialObject & IMMIX_BLOCK_OFFSET_MASK };
                AllocType t{
-                  sgCheckInternalOffset ?
-                     info->GetEnclosingAllocType(pos - sizeof(int), &potentialObject, allowPrevious) :
+                  (inReach || sgCheckInternalOffset) ?
+                     info->GetEnclosingAllocType(pos - sizeof(int), &potentialObject, allowPrevious, inReach ? inReach : sgCheckInternalOffset) :
                      info->GetAllocType(pos - sizeof(int), allowPrevious) };
 
                #ifdef HX_WATCH
@@ -5866,15 +5889,28 @@ void MarkConservative(int *inBottom, int *inTop,hx::MarkContext *__inCtx)
    #endif
 }
 
+void MarkConservative(int *inBottom, int *inTop,hx::MarkContext *__inCtx)
+{
+   MarkConservativeReach(inBottom, inTop, __inCtx, 0);
+}
+
+// A cpp.Pointer field, or a pointer boxed in a Dynamic, keeps what it points
+//  into wherever it points in it, as cpp.Pointer.arrayElem(a, 100) does. A
+//  stack word keeps an allocation only within sgCheckInternalOffset of its
+//  start, since a pointer further in is usually held from the start too, but a
+//  field may be all there is (libhxcpp #451). In a block, nothing bigger than
+//  the block, and a large allocation is checked against its own size
+static const uintptr_t sPointerFieldReach = ~(uintptr_t)0 >> 1;
+
 void MarkConservativePointer(void *inPtr,hx::MarkContext *__inCtx)
 {
    void *word[1] = { inPtr };
    // MarkConservative reads every pointer-sized word starting on an int in
    //  the range, so this covers the one word and nothing past it
    #ifdef HXCPP_STACK_UP
-   MarkConservative(reinterpret_cast<int *>(word + 1) - 1, reinterpret_cast<int *>(word) + 1, __inCtx);
+   MarkConservativeReach(reinterpret_cast<int *>(word + 1) - 1, reinterpret_cast<int *>(word) + 1, __inCtx, sPointerFieldReach);
    #else
-   MarkConservative(reinterpret_cast<int *>(word), reinterpret_cast<int *>(word + 1), __inCtx);
+   MarkConservativeReach(reinterpret_cast<int *>(word), reinterpret_cast<int *>(word + 1), __inCtx, sPointerFieldReach);
    #endif
 }
 
