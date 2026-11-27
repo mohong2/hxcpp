@@ -3,8 +3,22 @@
 
 #include <stddef.h>
 
-#if defined(HX_WINDOWS) && defined(HXCPP_ARM64)
-// Eg, Microsoft Surface
+// For code that reads whole stack ranges, including AddressSanitizer's redzones
+#if defined(__SANITIZE_ADDRESS__) && defined(_MSC_VER) && !defined(__clang__)
+   #define HX_NO_SANITIZE_ADDRESS __declspec(no_sanitize_address)
+#elif defined(__SANITIZE_ADDRESS__)
+   #define HX_NO_SANITIZE_ADDRESS __attribute__((no_sanitize_address))
+#elif defined(__has_feature)
+   #if __has_feature(address_sanitizer)
+      #define HX_NO_SANITIZE_ADDRESS __attribute__((no_sanitize_address))
+   #endif
+#endif
+#ifndef HX_NO_SANITIZE_ADDRESS
+   #define HX_NO_SANITIZE_ADDRESS
+#endif
+
+// By what the compiler targets: an Xcode arm64 build may define HXCPP_M64 and not HXCPP_ARM64
+#if defined(HXCPP_ARM64) || defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
 #define HXCPP_CAPTURE_SETJMP
 #endif
 
@@ -16,7 +30,7 @@
       #define HXCPP_CAPTURE_x86
    #endif
 
-   #if (defined(HX_MACOS) || (defined(HX_WINDOWS) && !defined(HX_WINRT)) || defined(_XBOX_ONE) || (defined(HX_LINUX) && defined(__x86_64__)) ) && defined(HXCPP_M64)
+   #if (defined(HX_MACOS) || (defined(HX_WINDOWS) && !defined(HX_WINRT)) || defined(_XBOX_ONE) || defined(HX_LINUX)) && defined(HXCPP_M64) && (defined(__x86_64__) || defined(_M_X64))
       #define HXCPP_CAPTURE_x64
    #endif
 
@@ -26,12 +40,6 @@
       #define HXCPP_CAPTURE_CONTEXT
    #endif
 
-   #if defined(HXCPP_ARM64)
-      //#define HXCPP_CAPTURE_ARM64
-      // Awlays use setjmp on arm64
-      #include <setjmp.h>
-      #define HXCPP_CAPTURE_SETJMP
-   #endif
 
 #endif
 
@@ -119,6 +127,7 @@ struct RegisterCaptureBuffer
    void *ebx;
    void *edi;
    void *esi;
+   void *ebp;
 
    void   *frame[CAPTURE_FRAME_WORDS];
    size_t frameWords = 0;

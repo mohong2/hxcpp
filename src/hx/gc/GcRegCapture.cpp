@@ -12,6 +12,7 @@ namespace hx {
 
 #if defined(HXCPP_CAPTURE_SETJMP) || defined(HXCPP_CAPTURE_CONTEXT) || defined(HXCPP_CAPTURE_x86) || defined(HXCPP_CAPTURE_x64) // {
 
+HX_NO_SANITIZE_ADDRESS
 size_t CopyStackWords(void **outWords, void *inFrom, int *inTopOfStack)
 {
    // Start on a word boundary, rounding down into the frame being copied, so the
@@ -24,7 +25,9 @@ size_t CopyStackWords(void **outWords, void *inFrom, int *inTopOfStack)
    size_t words = (size_t)(to - from);
    if (words > CAPTURE_FRAME_WORDS)
       words = CAPTURE_FRAME_WORDS;
-   memcpy(outWords, from, words * sizeof(void *));
+   // Not memcpy, which AddressSanitizer checks even here
+   for(size_t i=0;i<words;i++)
+      outWords[i] = ((void * volatile *)from)[i];
    return words;
 }
 
@@ -58,12 +61,17 @@ void CaptureX86(RegisterCaptureBuffer &outBuffer)
    void *regEsi;
    void *regEdi;
    void *regEbx;
+   // EBP is another callee-saved general register when frame pointers are
+   // omitted. A live object may be held only there across a collection.
+   void *regEbp;
    asm ("mov %%esi, %0\n\t" : "=r" (regEsi) );
    asm ("mov %%edi, %0\n\t" : "=r" (regEdi) );
    asm ("mov %%ebx, %0\n\t" : "=r" (regEbx) );
+   asm ("mov %%ebp, %0\n\t" : "=r" (regEbp) );
    outBuffer.esi = regEsi;
    outBuffer.edi = regEdi;
    outBuffer.ebx = regEbx;
+   outBuffer.ebp = regEbp;
 }
 
 } // end namespace hx
