@@ -1,8 +1,9 @@
 name: setup
+description: Install Haxe, hxcpp dependencies and build the build tools
 inputs:
   haxe:
+    description: Haxe version to install
     required: true
-    type: string
 runs:
   using: composite
   steps:
